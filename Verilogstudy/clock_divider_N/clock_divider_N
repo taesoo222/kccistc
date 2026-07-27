@@ -1,4 +1,4 @@
-//1MHz -> 5000kHz
+// 1MHz -> 5000kHz
 module clkdiv_2 (
     input  clk,
     input  reset,
@@ -16,7 +16,7 @@ module clkdiv_2 (
     end
 endmodule
 
-//1MHz -> 2500kHz
+// 1MHz -> 2500kHz
 module clkdiv_4 (
     input  clk,
     input  reset,
@@ -40,7 +40,7 @@ module clkdiv_4 (
     end
 endmodule
 
-
+// div6
 module clkdiv_6 (
     input  clk,
     input  reset,
@@ -60,6 +60,30 @@ module clkdiv_6 (
             if (cnt_reg == 2'b10) begin
                 clk_reg <= ~clk_reg;
                 cnt_reg <= 2'b00;
+            end
+        end
+    end
+endmodule
+
+// div8
+module clkdiv_8 (
+    input  clk,
+    input  rst,
+    output o_clk_8  // 00 01 10 11
+);
+    reg [1:0] cnt_reg;  // 00 01 10 11 
+    reg       clk_reg;
+
+    assign o_clk_8 = clk_reg;
+
+    always @(posedge clk, posedge rst) begin
+        if (rst) begin
+            cnt_reg <= 2'b00;
+            clk_reg <= 2'b00;
+        end else begin
+            cnt_reg <= cnt_reg + 2'b01;
+            if (cnt_reg == 2'b11) begin
+                clk_reg <= ~clk_reg;
             end
         end
     end
