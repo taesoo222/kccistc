@@ -1,3 +1,7 @@
+/*
+per 1ms 1tick generate
+1MHz -> 1kHz
+*/
 module tick_gen (
     input  clk,
     input  reset,
