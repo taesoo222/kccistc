@@ -68,7 +68,7 @@ endmodule
 // div8
 module clkdiv_8 (
     input  clk,
-    input  rst,
+    input  reset,
     output o_clk_8  // 00 01 10 11
 );
     reg [1:0] cnt_reg;  // 00 01 10 11 
@@ -76,7 +76,7 @@ module clkdiv_8 (
 
     assign o_clk_8 = clk_reg;
 
-    always @(posedge clk, posedge rst) begin
+    always @(posedge clk, posedge reset) begin
         if (rst) begin
             cnt_reg <= 2'b00;
             clk_reg <= 2'b00;
