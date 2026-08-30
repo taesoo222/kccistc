@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module counter (
+module counter_8 (
     input  logic       clk,
     input  logic       rst_n,
     input  logic       enable,
