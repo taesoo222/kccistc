@@ -1,0 +1,36 @@
+# ==== Vivado generated / local project data ====
+*.cache/
+*.hw/
+*.sim/
+*.runs/
+*.gen/
+*.ip_user_files/
+*.srcs/
+.Xil/
+
+# ==== Vivado project file ====
+# Regenerate locally: Vivado Tcl -> source create_project.tcl
+# (or make a New Project and Add the src/ sim/ *.xdc files)
+*.xpr
+*.xpr.orig
+*.beam
+
+# ==== logs / temp ====
+*.jou
+*.log
+*.str
+*.wdb
+*.wpc
+*.lpr
+*.pb
+*.zip
+vivado.backup.*
+vivado_pid*.str
+webtalk*.jou
+webtalk*.log
+usage_statistics_webtalk.*
+hs_err_pid*.log
+
+# ==== OS ====
+Thumbs.db
+.DS_Store
