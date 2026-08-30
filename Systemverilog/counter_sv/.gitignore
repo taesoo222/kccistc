@@ -1,0 +1,18 @@
+# Vivado generated / local files
+*.cache/
+*.hw/
+*.sim/
+*.runs/
+*.gen/
+*.ip_user_files/
+.Xil/
+
+# logs / temp
+*.jou
+*.log
+*.str
+*.wdb
+*.wpc
+*.lpr
+*.pb
+*.zip
