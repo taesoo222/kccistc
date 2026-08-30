@@ -6,10 +6,10 @@ uses this GitHub repo (`taesoo222/kccistc`) as the single sync point.
 ## Layout
 
 ```
-Project/         complete projects
-Systemverilog/   SystemVerilog / UVM work
-Verilogstudy/    Verilog exercises
-scripts/         sync tooling
+Project/              complete projects
+study/Systemverilog/  SystemVerilog / UVM work
+study/Verilog/        Verilog exercises
+scripts/              sync tooling
 ```
 
 Each project folder tracks **only** hand-written sources:
