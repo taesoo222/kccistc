@@ -273,7 +273,7 @@ class ram_coverage extends uvm_subscriber #(ram_seq_item);
         cp_rdata: coverpoint r_item.rdata {bins range_0_to_255[] = {[0 : 255]};}
 
         cx_wdata_addr: cross cp_wdata, cp_addr;
-        cx_we_wdata: cross cp_we, cp_wdata;
+        cx_we_addr: cross cp_we, cp_addr;
     endgroup
 
     function new(string name = "ram_cov", uvm_component c = null);
@@ -309,8 +309,8 @@ class ram_coverage extends uvm_subscriber #(ram_seq_item);
             "** wdata/addr = %.1f %% **", ram_cg.cx_wdata_addr.get_coverage()),
             UVM_NONE);
         `uvm_info("COV", $sformatf(
-                  "** we/wdata = %.1f %% **", ram_cg.cx_we_wdata.get_coverage()
-                  ), UVM_NONE);
+                  "** we/addr = %.1f %% **", ram_cg.cx_we_addr.get_coverage()),
+                  UVM_NONE);
         `uvm_info("COV", $sformatf("\n***********************"), UVM_NONE);
     endfunction
 
