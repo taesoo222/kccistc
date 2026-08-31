@@ -1,6 +1,7 @@
 {
   "workspaceRootDefault": "E:/work/2026_AI_COMP",
   "projects": [
-    { "vivado": "counter_sv", "repo": "study/Systemverilog/counter_sv" }
+    { "vivado": "counter_sv", "repo": "study/Systemverilog/counter_sv" },
+    { "vivado": "ram_sv", "repo": "study/Systemverilog/ram_sv" }
   ]
 }
