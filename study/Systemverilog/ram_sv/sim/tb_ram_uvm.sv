@@ -70,7 +70,7 @@ class ram_sequence extends uvm_sequence #(ram_seq_item);
 
         ram_seq_item r_item;
 
-        repeat (10) begin
+        repeat (100) begin
             r_item = ram_seq_item::type_id::create("ram_seq_item");
 
             start_item(r_item);
@@ -254,11 +254,68 @@ class ram_scoreboard extends uvm_scoreboard;
     endfunction
 endclass
 
+// coverage
+class ram_coverage extends uvm_subscriber #(ram_seq_item);
+    `uvm_component_utils(ram_coverage)
+
+    ram_seq_item r_item;
+
+    covergroup ram_cg;
+        option.per_instance = 1;
+
+        cp_we: coverpoint r_item.we {
+            bins write[] = {1}; bins read[] = {[0 : 1]};
+        }
+        cp_addr: coverpoint r_item.addr {bins range_0_to_255[] = {[0 : 255]};}
+        cp_wdata: coverpoint r_item.wdata iff (r_item.we == 1) {
+            bins range_0_to_255[] = {[0 : 255]};
+        }
+        cp_rdata: coverpoint r_item.rdata {bins range_0_to_255[] = {[0 : 255]};}
+
+        cx_wdata_addr: cross cp_wdata, cp_addr;
+    //        cx_addr_wdata: cross cp_addr, cp_wdata;
+    endgroup
+
+    function new(string name = "ram_cov", uvm_component c = null);
+        super.new(name, c);
+        ram_cg = new();
+    endfunction
+
+    virtual function void write(ram_seq_item t_item);
+        r_item = t_item;
+        ram_cg.sample();  // sample, bins one time hit
+    endfunction
+
+    virtual function void report_phase(uvm_phase phase);
+
+        `uvm_info("COV", $sformatf("\n*** Coverage Report ***"), UVM_NONE);
+        `uvm_info("COV", $sformatf(
+                  "** Overall    = %.1f %% **", ram_cg.get_coverage()), UVM_NONE);
+        `uvm_info("COV", $sformatf(
+                  "** we         = %.1f %% **", ram_cg.cp_we.get_coverage()),
+                  UVM_NONE);
+        `uvm_info("COV", $sformatf(
+                  "** addr       = %.1f %% **", ram_cg.cp_addr.get_coverage()),
+                  UVM_NONE);
+        `uvm_info("COV", $sformatf(
+                  "** wdata      = %.1f %% **", ram_cg.cp_wdata.get_coverage()),
+                  UVM_NONE);
+        `uvm_info("COV", $sformatf(
+                  "** rdata      = %.1f %% **", ram_cg.cp_rdata.get_coverage()),
+                  UVM_NONE);
+        `uvm_info("COV", $sformatf(
+                  "** wdata/addr = %.1f %% **", ram_cg.cx_wdata_addr.get_coverage()),
+                  UVM_NONE);
+        `uvm_info("COV", $sformatf("\n***********************"), UVM_NONE);
+    endfunction
+
+endclass
 
 class ram_environment extends uvm_env;
     `uvm_component_utils(ram_environment)
     ram_agent      ram_agt;
     ram_scoreboard ram_scb;
+    ram_coverage   ram_cov;
 
 
     function new(string name = "ram_env", uvm_component p = null);
@@ -269,11 +326,14 @@ class ram_environment extends uvm_env;
         super.build_phase(phase);
         ram_agt = ram_agent::type_id::create("agt", this);
         ram_scb = ram_scoreboard::type_id::create("scb", this);
+        ram_cov = ram_coverage::type_id::create("cov", this);
     endfunction
 
     virtual function void connect_phase(uvm_phase phase);
         super.connect_phase(phase);
         ram_agt.ram_mon.send.connect(ram_scb.recv);
+        ram_agt.ram_mon.send.connect(
+            ram_cov.analysis_export); // monitor : caller, scoreboard,coverage : caller
     endfunction
 
 endclass
