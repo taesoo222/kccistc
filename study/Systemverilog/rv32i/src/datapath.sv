@@ -1,12 +1,17 @@
 module datapath (
     input  logic        clk,
     input  logic        rst_n,
-    input  logic        rt_we,
+    input  logic        rf_we,
     input  logic [ 9:0] alu_control,
     input  logic [31:0] instr_code,
     output logic [ 5:0] instr_addr
 );
+
     logic [31:0] alu_result, rf_rd1, rf_rd2;
+    logic [5:0] pc_next;
+
+    assign instr_addr = {{26{1'b0}}, pc_next};
+
 
     reg_file U_REG_FILE (
         .clk(clk),
@@ -18,21 +23,19 @@ module datapath (
         .rd1(rf_rd1),
         .rd2(rf_rd2)
     );
-
     alu U_ALU (
-        .a          (rf_rd1),
-        .b          (rf_rd2),
+        .a(rf_rd1),
+        .b(rf_rd2),
         .alu_control(alu_control),
-        .alu_result (alu_result)
+        .alu_result(alu_result)
     );
-
     program_counter U_PC (
-        .clk  (clk),
+        .clk(clk),
         .rst_n(rst_n),
-        .pc   ({26'd0,instr_addr})
+        .pc(pc_next)
     );
-
 endmodule
+
 
 module reg_file (
     input  logic        clk,
@@ -67,12 +70,18 @@ module alu (
         alu_result = 32'h0000_0000;
         case (alu_control)
             // {funct3, funct7}
-            10'b000_000_0000: alu_result = a + b;
-            10'b000_010_0000: alu_result = a - b;
-            10'b100_000_0000: alu_result = a ^ b;
-            10'b110_000_0000: alu_result = a | b;
-            10'b111_000_0000: alu_result = a & b;
+            10'b000_000_0000: alu_result = a + b;                                      // add
+            10'b000_010_0000: alu_result = a - b;                                      // sub
+            10'b100_000_0000: alu_result = a ^ b;                                      // xor
+            10'b110_000_0000: alu_result = a | b;                                      // or
+            10'b111_000_0000: alu_result = a & b;                                      // and
+            10'b001_000_0000: alu_result = a << b[4:0];                                // sll
+            10'b101_000_0000: alu_result = a >> b[4:0];                                // srl
+            10'b101_010_0000: alu_result = $signed(a) >>> b[4:0];                      // sra (msb-extends)
+            10'b010_000_0000: alu_result = ($signed(a) < $signed(b)) ? 32'd1 : 32'd0;  // slt
+            10'b011_000_0000: alu_result = (a < b) ? 32'd1 : 32'd0;                    // sltu (zero-extends)
         endcase
+
     end
 
 endmodule
@@ -87,8 +96,11 @@ module program_counter (
     assign pc = register_pc;
 
     always_ff @(posedge clk) begin
-        if (!rst_n) register_pc <= 32'b0;
+        if (!rst_n) register_pc <= 32'd0;
         else register_pc <= register_pc + 4;
     end
 endmodule
+
+
+
 

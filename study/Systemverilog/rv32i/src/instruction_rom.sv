@@ -1,10 +1,16 @@
+
 module instruction_rom (
-    input  logic [5:0] instr_addr,
-    output logic [31:0] instr_code
+	input		logic [	5:0] instr_addr,
+	output	logic [31:0] instr_code
 );
 
-    logic [31:0] instr_rom [0:15];
+	logic [31:0] instr_rom [0:15];
 
-    assign instr_code = instr_rom[ instr_addr[5:2] ];
+	initial begin
+		instr_rom[0]	= 32'h0041_82b3;	// add x5, x3, x4
+	end
+
+
+	assign instr_code = instr_rom[instr_addr[5:2]];
 
 endmodule
