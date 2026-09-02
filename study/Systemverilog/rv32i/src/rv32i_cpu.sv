@@ -11,12 +11,6 @@ module rv32i_top (
 
 endmodule
 
-
-
-
-
-
-
 module rv32i_cpu (
     input               clk,
     input               rst_n,
