@@ -3,6 +3,7 @@
   "projects": [
     { "vivado": "counter_sv", "repo": "study/Systemverilog/counter_sv" },
     { "vivado": "ram_sv", "repo": "study/Systemverilog/ram_sv" },
-    { "vivado": "gp_cpu_sv", "repo": "study/Systemverilog/gp_cpu_sv" }
+    { "vivado": "gp_cpu_sv", "repo": "study/Systemverilog/gp_cpu_sv" },
+    { "vivado": "rv32i_cpu_sv", "repo": "study/Systemverilog/rv32i" }
   ]
 }

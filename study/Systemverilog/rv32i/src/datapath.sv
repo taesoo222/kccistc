@@ -81,7 +81,9 @@ module reg_file (
     always_ff @(posedge clk) begin
         if (!rst_n) begin
 `ifdef SIMULATION
-            for (int i = 0; i < 32; i++) ram_file[i] <= i;
+            for (int i = 1; i < 32; i++) ram_file[i] <= i;
+            ram_file[2] <= 32'hFFFF_FFFF;
+            ram_file[5] <= 32'h8000_0000;
 `else
             for (int i = 0; i < 32; i++) ram_file[i] <= 0;
 `endif

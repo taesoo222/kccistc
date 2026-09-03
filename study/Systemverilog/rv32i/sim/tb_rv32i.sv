@@ -3,21 +3,19 @@ module tb_rv32i_cpu ();
 
     always #5 clk = ~clk;
 
-    rv32i_top dut (
-        .*
-    );
-    
-    initial begin
-        $fsdbDumpfile("wave.fsdb");
-        $fsdbDumpvars(0, tb_rv32i_cpu);
-    end
+    rv32i_top dut (.*);
+
+    // initial begin
+    //     $fsdbDumpfile("wave.fsdb");
+    //     $fsdbDumpvars(0, tb_rv32i_cpu);
+    // end
 
     initial begin
         #10;
         rst_n = 1;
 
-        #20;
+        #150;
         $finish;
     end
 
-    endmodule
+endmodule
