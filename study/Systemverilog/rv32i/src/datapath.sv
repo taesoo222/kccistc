@@ -12,7 +12,7 @@ module datapath (
     output logic [31:0] dwdata
 );
 
-    logic [31:0] alu_result, rf_rd1, rf_rd2;
+    logic [31:0] alu_result, rf_rd1, rf_rd2, alusrc_muxout;
     logic [31:0] imm_extend;
 
     assign daddr  = alu_result;
@@ -123,7 +123,7 @@ endmodule
 // imm extender
 module imm_extender (
     input  logic [31:0] instr_code,
-    output logic [32:0] imm_extend
+    output logic [31:0] imm_extend
 );
     always_comb begin
         case (instr_code[6:0])
