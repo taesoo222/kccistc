@@ -5,16 +5,16 @@ module tb_rv32i_cpu ();
 
     rv32i_top dut (.*);
 
-    // initial begin
-    //     $fsdbDumpfile("wave.fsdb");
-    //     $fsdbDumpvars(0, tb_rv32i_cpu);
-    // end
+    initial begin
+        $fsdbDumpfile("wave.fsdb");
+        $fsdbDumpvars(0, tb_rv32i_cpu);
+    end
 
     initial begin
         #10;
         rst_n = 1;
 
-        #150;
+        #50;
         $finish;
     end
 

@@ -4,7 +4,11 @@ package rv32i_pkg;
         OP_RTYPE  = 7'b011_0011,
         OP_STYPE  = 7'b010_0011,
         OP_ITYPE  = 7'b001_0011,
-        OP_ILTYPE = 7'b000_0011
+        OP_ILTYPE = 7'b000_0011,
+        OP_BTYPE  = 7'b110_0011
     } opcode_e;
 
+
+
 endpackage
+

@@ -6,13 +6,15 @@ module datapath (
     input  logic        rf_we,
     input  logic        alusrc_sel,
     input  logic [ 3:0] alu_control,
+    input  logic        rf_srcsel,
     input  logic [31:0] instr_code,
+    input  logic [31:0] drdata,
     output logic [31:0] instr_addr,
     output logic [31:0] daddr,
     output logic [31:0] dwdata
 );
 
-    logic [31:0] alu_result, rf_rd1, rf_rd2, alusrc_muxout;
+    logic [31:0] alu_result, rf_rd1, rf_rd2, alusrc_muxout, wb_muxout;
     logic [31:0] imm_extend;
 
     assign daddr  = alu_result;
@@ -24,7 +26,7 @@ module datapath (
         .ra1(instr_code[19:15]),
         .ra2(instr_code[24:20]),
         .wa(instr_code[11:7]),
-        .wd(alu_result),
+        .wd(wb_muxout),
         .we(rf_we),
         .rd1(rf_rd1),
         .rd2(rf_rd2)
@@ -46,6 +48,14 @@ module datapath (
         .alu_control(alu_control),
         .alu_result(alu_result)
     );
+
+    mux_2x1 U_WB_MUX (
+        .sel    (rf_srcsel),
+        .in0    (alu_result),
+        .in1    (drdata),
+        .mux_out(wb_muxout)
+    );
+
     program_counter U_PC (
         .clk(clk),
         .rst_n(rst_n),
@@ -81,9 +91,7 @@ module reg_file (
     always_ff @(posedge clk) begin
         if (!rst_n) begin
 `ifdef SIMULATION
-            for (int i = 1; i < 32; i++) ram_file[i] <= i;
-            ram_file[2] <= 32'hFFFF_FFFF;
-            ram_file[5] <= 32'h8000_0000;
+            for (int i = 0; i < 32; i++) ram_file[i] <= i;
 `else
             for (int i = 0; i < 32; i++) ram_file[i] <= 0;
 `endif
@@ -99,7 +107,8 @@ module alu (
     input  logic [31:0] rs1,
     input  logic [31:0] rs2,
     input  logic [ 3:0] alu_control,
-    output logic [31:0] alu_result
+    output logic [31:0] alu_result,
+    output logic        b_taken
 );
 
     always_comb begin
@@ -120,20 +129,54 @@ module alu (
 
         endcase
     end
+
+    always_comb begin
+        b_taken = 1'b0;
+        case (alu_control)
+            4'b0_000:
+            if (rs1 == rs2) b_taken = 1;
+            else b_taken = 0;  // BEQ
+        
+        
+        
+        
+        endcase
+
+
+    end
+
 endmodule
 
 // imm extender
-module imm_extender (
+module imm_extender
+    import rv32i_pkg::*;
+(
     input  logic [31:0] instr_code,
     output logic [31:0] imm_extend
 );
+
+    opcode_e opcode;
+
+    assign opcode = opcode_e'(instr_code[6:0]); // opcode_e` : casting operator
+
     always_comb begin
-        case (instr_code[6:0])
-            // s-type opcode          20{instr_code[31]} -> sign extend * 20 
-            7'b010_0011:
+        case (opcode)
+            OP_STYPE:
             imm_extend = {
                 {20{instr_code[31]}}, instr_code[31:25], instr_code[11:7]
             };
+            OP_ITYPE, OP_ILTYPE:
+            imm_extend = {{20{instr_code[31]}}, instr_code[31:20]};
+            OP_BTYPE:
+            imm_extend = {
+                {20{instr_code[31]}},
+                instr_code[31],
+                instr_code[7],
+                instr_code[30:25],
+                instr_code[11:8]
+            };
+            //20bit + 1bit + 1bit + 6bit + 4bit + 1bit
+            default: imm_extend = 32'h0000_0000;
         endcase
     end
 

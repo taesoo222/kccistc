@@ -6,6 +6,7 @@ module rv32i_top (
     logic [31:0] instr_addr;
     logic [31:0] daddr;
     logic [31:0] dwdata;
+    logic [31:0] drdata;
     logic        dwe;
     logic [ 2:0] itype;
 
@@ -21,15 +22,17 @@ module rv32i_cpu (
     input  logic        clk,
     input  logic        rst_n,
     input  logic [31:0] instr_code,
+    input  logic [31:0] drdata,
     output logic [31:0] instr_addr,
     output logic [31:0] daddr,
     output logic [31:0] dwdata,
     output logic        dwe,
     output logic [ 2:0] itype
 );
-    logic rf_we;
-    logic alusrc_sel;
+    logic       rf_we;
+    logic       alusrc_sel;
     logic [3:0] alu_control;
+    logic       rf_srcsel;
 
     control_unit U_CONTROL_UNIT (.*);
 
