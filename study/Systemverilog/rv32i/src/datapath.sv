@@ -193,9 +193,6 @@ module program_counter (
     assign sel  = branch & b_taken;
     assign o_pc = register_pc;
 
-    o_alu = 
-
-
     always_ff @(posedge clk) begin
         if (!rst_n) register_pc <= 32'd0;
         else register_pc <= register_pc + 4;
