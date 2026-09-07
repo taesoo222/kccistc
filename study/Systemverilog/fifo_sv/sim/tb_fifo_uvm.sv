@@ -5,10 +5,10 @@ import uvm_pkg::*;
 interface fifo_if (
     input clk
 );
-    logic       rst_n;
-    logic       push;
-    logic       pop;
-    logic [7:0] wdata;
+    logic       rst_n = 1'b0;
+    logic       push = 1'b0;
+    logic       pop = 1'b0;
+    logic [7:0] wdata = 8'b0;
     logic [7:0] rdata;
     logic       full;
     logic       empty;
@@ -33,7 +33,7 @@ interface fifo_if (
     endclocking
 
     property p_full_empty_exclusive;
-        @(posedge clk) disable iff (!rst_n) !(full && empty);
+        @(posedge clk) disable iff ($isunknown(rst_n) || !rst_n) !(full && empty);
     endproperty
 
     A_FULL_EMPTY_EXCLUSIVE :
