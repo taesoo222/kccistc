@@ -8,7 +8,5 @@ package rv32i_pkg;
         OP_BTYPE  = 7'b110_0011
     } opcode_e;
 
-
-
 endpackage
 

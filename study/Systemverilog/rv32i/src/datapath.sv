@@ -57,9 +57,9 @@ module datapath (
     );
 
     program_counter U_PC (
-        .clk(clk),
+        .clk  (clk),
         .rst_n(rst_n),
-        .pc(instr_addr)
+        .o_pc (instr_addr)
     );
 endmodule
 
@@ -136,10 +136,6 @@ module alu (
             4'b0_000:
             if (rs1 == rs2) b_taken = 1;
             else b_taken = 0;  // BEQ
-        
-        
-        
-        
         endcase
 
 
@@ -182,22 +178,29 @@ module imm_extender
 
 endmodule
 
-
 module program_counter (
     input  logic        clk,
     input  logic        rst_n,
-    output logic [31:0] pc
+    input  logic [31:0] i_pc,
+    input  logic        branch,
+    input  logic        b_taken,
+    output logic [31:0] o_pc
 );
     logic [31:0] register_pc;
+    logic        sel;
+    logic alu0, alu1, o_alu;
 
-    assign pc = register_pc;
+    assign sel  = branch & b_taken;
+    assign o_pc = register_pc;
+
+    o_alu = 
+
 
     always_ff @(posedge clk) begin
         if (!rst_n) register_pc <= 32'd0;
         else register_pc <= register_pc + 4;
     end
 endmodule
-
 
 
 
