@@ -5,10 +5,10 @@ import uvm_pkg::*;
 interface fifo_if (
     input clk
 );
-    logic       rst_n;
-    logic       push;
-    logic       pop;
-    logic [7:0] wdata;
+    logic       rst_n = 1'b0;
+    logic       push = 1'b0;
+    logic       pop = 1'b0;
+    logic [7:0] wdata = 8'b0;
     logic [7:0] rdata;
     logic       full;
     logic       empty;
@@ -33,7 +33,7 @@ interface fifo_if (
     endclocking
 
     property p_full_empty_exclusive;
-        @(posedge clk) disable iff (!rst_n) !(full && empty);
+        @(posedge clk) disable iff ($isunknown(rst_n) || !rst_n) !(full && empty);
     endproperty
 
     A_FULL_EMPTY_EXCLUSIVE :
@@ -243,16 +243,6 @@ class fifo_driver extends uvm_driver #(fifo_seq_item);
 
     virtual task run_phase(uvm_phase phase);
         super.run_phase(phase);
-        // drv_cb output skew always lands one edge after it's issued, so
-        // the very first posedge would sample stale X on the interface.
-        // Drive the idle/reset values straight onto the pins (bypassing
-        // the clocking block) before that first edge so the monitor's
-        // first sample already matches what the sequencer intends to
-        // drive.
-        f_if.rst_n = 1'b0;
-        f_if.push  = 1'b0;
-        f_if.pop   = 1'b0;
-        f_if.wdata = 8'b0;
         forever begin
             seq_item_port.get_next_item(f_item);
             if (f_item.rst_n == 0) rst_drive_cnt++;
