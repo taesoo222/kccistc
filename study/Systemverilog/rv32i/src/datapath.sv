@@ -6,7 +6,7 @@ module datapath (
     input  logic        rf_we,
     input  logic        alusrc_sel,
     input  logic [ 3:0] alu_control,
-    input  logic        rf_srcsel,
+    input  logic [ 2:0] rf_srcsel,
     input  logic [31:0] instr_code,
     input  logic [31:0] drdata,
     input  logic        branch,
@@ -17,56 +17,64 @@ module datapath (
 
     logic [31:0] alu_result, rf_rd1, rf_rd2, alusrc_muxout, wb_muxout;
     logic [31:0] imm_extend;
+    logic [31:0] pc_imm, pc_4;
     logic b_taken;
 
     assign daddr  = alu_result;
     assign dwdata = rf_rd2;
 
     reg_file U_REG_FILE (
-        .clk(clk),
+        .clk  (clk),
         .rst_n(rst_n),
-        .ra1(instr_code[19:15]),
-        .ra2(instr_code[24:20]),
-        .wa(instr_code[11:7]),
-        .wd(wb_muxout),
-        .we(rf_we),
-        .rd1(rf_rd1),
-        .rd2(rf_rd2)
+        .ra1  (instr_code[19:15]),
+        .ra2  (instr_code[24:20]),
+        .wa   (instr_code[11:7]),
+        .wd   (wb_muxout),
+        .we   (rf_we),
+        .rd1  (rf_rd1),
+        .rd2  (rf_rd2)
     );
     imm_extender U_IMM_EXTEND (
         .instr_code(instr_code),
         .imm_extend(imm_extend)
     );
     mux_2x1 U_ALUSRC_MUX (
-        .sel(alusrc_sel),
-        .in0(rf_rd2),
-        .in1(imm_extend),
+        .sel    (alusrc_sel),
+        .in0    (rf_rd2),
+        .in1    (imm_extend),
         .mux_out(alusrc_muxout)
     );
 
     alu U_ALU (
-        .rs1(rf_rd1),
-        .rs2(alusrc_muxout),
+        .rs1        (rf_rd1),
+        .rs2        (alusrc_muxout),
         .alu_control(alu_control),
-        .alu_result(alu_result),
-        .b_taken(b_taken)
+        .alu_result (alu_result),
+        .b_taken    (b_taken)
     );
 
-    mux_2x1 U_WB_MUX (
-        .sel    (rf_srcsel),
-        .in0    (alu_result),
-        .in1    (drdata),
+    mux_5x1 U_WB_MUX (
+        .sel(rf_srcsel),
+        .in0(alu_result),
+        .in1(drdata),
+        .in2(imm_extend),
+        .in3(pc_imm),
+        .in4(pc_4),
         .mux_out(wb_muxout)
     );
 
     program_counter U_PC (
-        .clk       (clk),
-        .rst_n     (rst_n),
-        .b_taken   (b_taken),
-        .branch    (branch),
+        .clk(clk),
+        .rst_n(rst_n),
+        .branch(branch),
+        .b_taken(b_taken),
         .imm_extend(imm_extend),
-        .pc        (instr_addr)
+        .pc(instr_addr),
+        .pc_imm(pc_imm),
+        .pc_4(pc_4)
     );
+
+
 endmodule
 
 module mux_2x1 (
@@ -79,6 +87,26 @@ module mux_2x1 (
 
 endmodule
 
+module mux_5x1 (
+    input  logic [ 2:0] sel,
+    input  logic [31:0] in0,
+    input  logic [31:0] in1,
+    input  logic [31:0] in2,
+    input  logic [31:0] in3,
+    input  logic [31:0] in4,
+    output logic [31:0] mux_out
+);
+    always_comb begin
+        case (sel)
+            3'd0: mux_out = in0;
+            3'd1: mux_out = in1;
+            3'd2: mux_out = in2;
+            3'd3: mux_out = in3;
+            3'd4: mux_out = in4;
+            default: mux_out = in0;
+        endcase
+    end
+endmodule
 
 module reg_file (
     input  logic        clk,
@@ -126,12 +154,12 @@ module alu (
             4'b0_100: alu_result = rs1 ^ rs2;  // xor
             4'b0_110: alu_result = rs1 | rs2;  // or
             4'b0_111: alu_result = rs1 & rs2;  // and
-            4'b0_001: alu_result = rs1 << rs2;  // sll
-            4'b0_101: alu_result = rs1 >> rs2;  // srl
-            4'b1_101: alu_result = $signed(rs1) >>> rs2;  // sra
+            4'b0_001: alu_result = rs1 << rs2[4:0];  // sll
+            4'b0_101: alu_result = rs1 >> rs2[4:0];  // srl
+            4'b1_101: alu_result = $signed(rs1) >>> rs2[4:0];  // sra
             4'b0_010:
             alu_result = $signed(rs1) < $signed(rs2) ? 32'd1 : 32'd0;  // slt
-            4'b0_011: alu_result = rs1 < rs2 ? 32'd1 : 32'd0;  // sltu
+            4'b0_011: alu_result = (rs1 < rs2) ? 32'd1 : 32'd0;  // sltu
 
         endcase
     end
@@ -203,6 +231,14 @@ module imm_extender
                 instr_code[11:8],
                 1'b0
             };
+            // LUI
+            OP_U_LUI: begin
+                imm_extend = {instr_code[31:12], 12'b0};
+            end
+            // AUIPC
+            OP_U_AUIPC: begin
+                imm_extend = {instr_code[31:12], 12'b0};
+            end
             //20bit + 1bit + 1bit + 6bit + 4bit + 1bit
             default: imm_extend = 32'h0000_0000;
         endcase
@@ -221,7 +257,7 @@ module program_counter (
     output logic [31:0] pc_4
 );
     logic [31:0] register_pc;
-    logic [31:0] pc_4, pc_imm, pc_next;
+    logic [31:0] pc_next;
     logic pc_srcsel;
 
     assign pc = register_pc;

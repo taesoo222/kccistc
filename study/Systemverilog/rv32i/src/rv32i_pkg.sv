@@ -1,11 +1,13 @@
 package rv32i_pkg;
 
     typedef enum logic [6:0] {
-        OP_RTYPE  = 7'b011_0011,
-        OP_STYPE  = 7'b010_0011,
-        OP_ITYPE  = 7'b001_0011,
-        OP_ILTYPE = 7'b000_0011,
-        OP_BTYPE  = 7'b110_0011
+        OP_RTYPE   = 7'b011_0011,
+        OP_STYPE   = 7'b010_0011,
+        OP_ITYPE   = 7'b001_0011,
+        OP_ILTYPE  = 7'b000_0011,
+        OP_BTYPE   = 7'b110_0011,
+        OP_U_LUI   = 7'b011_0111,
+        OP_U_AUIPC = 7'b001_0111
     } opcode_e;
     //
     // rv32i instruction enum type
