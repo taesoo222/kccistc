@@ -13,7 +13,7 @@ interface fifo_if (
     logic       full;
     logic       empty;
 
-    clocking drv_cb @(posedge clk);
+    clocking drv_cb @(negedge clk);
         default input #1step output #1;
         output rst_n;
         output push;
@@ -21,7 +21,7 @@ interface fifo_if (
         output wdata;
     endclocking
 
-    clocking mon_cb @(posedge clk);
+    clocking mon_cb @(negedge clk);
         default input #1step;
         input rst_n;
         input push;
@@ -33,12 +33,14 @@ interface fifo_if (
     endclocking
 
     property p_full_empty_exclusive;
-        @(posedge clk) disable iff (!rst_n) !(full && empty);
+        @(posedge clk) disable iff (!rst_n || $isunknown(
+            rst_n
+        )) !(full && empty);
     endproperty
 
     A_FULL_EMPTY_EXCLUSIVE :
     assert property (p_full_empty_exclusive)
-    else `uvm_error("[ASSERT]", "full and empty asserted at the same time!!")
+    else `uvm_error("[ASSERT]", "full and empty same time")
 
 endinterface
 
@@ -201,7 +203,7 @@ class fifo_concurrent_sequence extends uvm_sequence #(fifo_seq_item);
     endtask
 endclass
 
-// seqeunce
+// sequence
 // #5 nomal
 class fifo_normal_sequence extends uvm_sequence #(fifo_seq_item);
     `uvm_object_utils(fifo_normal_sequence)
@@ -212,12 +214,11 @@ class fifo_normal_sequence extends uvm_sequence #(fifo_seq_item);
     endfunction
 
     task body();
-        repeat (2000) begin
+        repeat (1024) begin
             f_item = fifo_seq_item::type_id::create("f_item");
             start_item(f_item);
             if (!f_item.randomize())
                 `uvm_fatal(get_type_name(), "randomize fail");
-            f_item.rst_n = 1;
             finish_item(f_item);
         end
     endtask
@@ -228,8 +229,7 @@ class fifo_driver extends uvm_driver #(fifo_seq_item);
     `uvm_component_utils(fifo_driver)
 
     virtual fifo_if f_if;
-    fifo_seq_item f_item;
-    int rst_drive_cnt;
+    fifo_seq_item   f_item;
 
     function new(string name = "drv", uvm_component c = null);
         super.new(name, c);
@@ -245,7 +245,6 @@ class fifo_driver extends uvm_driver #(fifo_seq_item);
         super.run_phase(phase);
         forever begin
             seq_item_port.get_next_item(f_item);
-            if (f_item.rst_n == 0) rst_drive_cnt++;
             @(f_if.drv_cb);
             f_if.drv_cb.rst_n <= f_item.rst_n;
             f_if.drv_cb.push  <= f_item.push;
@@ -254,13 +253,6 @@ class fifo_driver extends uvm_driver #(fifo_seq_item);
             seq_item_port.item_done();
         end
     endtask
-
-    virtual function void report_phase(uvm_phase phase);
-        `uvm_info(get_type_name(), $sformatf(
-                  "\n**************************************************************************Total rst_n=0 driven: %d",
-                  rst_drive_cnt
-                  ), UVM_NONE)
-    endfunction
 endclass
 
 // monitor
@@ -399,7 +391,7 @@ class fifo_scoreboard extends uvm_scoreboard;
             flag_fail_cnt++;
         end
 
-        // data
+        // data 
         if (!pred_empty) begin
             if (f_item.rdata === ram_buffer[0]) begin
                 `uvm_info(
@@ -478,19 +470,20 @@ class fifo_coverage extends uvm_subscriber #(fifo_seq_item);
 
         cp_op: coverpoint {
             f_item.push, f_item.pop
-        } {  // 4
+        } {
             bins idle = {2'b00};
             bins push_only = {2'b10};
             bins pop_only = {2'b01};
             bins concurrent = {2'b11};
         }
-        cp_full: coverpoint f_item.full {bins full[] = {[0 : 1]};}  // 2
-        cp_empty: coverpoint f_item.empty {bins empty[] = {[0 : 1]};}  // 2
+        cp_full: coverpoint f_item.full {bins full[] = {[0 : 1]};}
+        cp_empty: coverpoint f_item.empty {bins empty[] = {[0 : 1]};}
 
         cp_wdata: coverpoint f_item.wdata iff (f_item.push == 1) {
             bins range_0_to_255[] = {[0 : 255]};
         }
-        cp_rdata: coverpoint f_item.rdata iff (f_item.pop == 1 && f_item.empty == 0) {
+        cp_rdata: coverpoint f_item.rdata iff (f_item.pop == 1 && f_item.empty == 0) 
+        {
             bins range_0_to_255[] = {[0 : 255]};
         }
 
@@ -597,7 +590,7 @@ class fifo_test extends uvm_test;
         `uvm_info("run_phase", "Reset end", UVM_LOW)
 
 
-        // #2 full
+        // #2 full 
         `uvm_info("run_phase", "full_seq start", UVM_LOW)
         full_seq.start(fifo_env.fifo_agt.fifo_sqr);
         concurrent_seq.start(fifo_env.fifo_agt.fifo_sqr);
@@ -609,11 +602,11 @@ class fifo_test extends uvm_test;
         concurrent_seq.start(fifo_env.fifo_agt.fifo_sqr);
         `uvm_info("run_phase", "empty_seq end", UVM_LOW)
 
-        // //#4 working reset
-        // `uvm_info("run_phase", "working reset test start", UVM_LOW)
-        // full_seq.start(fifo_env.fifo_agt.fifo_sqr);
-        // reset_seq.start(fifo_env.fifo_agt.fifo_sqr);
-        // `uvm_info("run_phase", "working reset test end", UVM_LOW)
+        // #4 working reset
+        `uvm_info("run_phase", "working reset test start", UVM_LOW)
+        full_seq.start(fifo_env.fifo_agt.fifo_sqr);
+        reset_seq.start(fifo_env.fifo_agt.fifo_sqr);
+        `uvm_info("run_phase", "working reset test end", UVM_LOW)
 
         // #5 normal
         `uvm_info("run_phase", "normal_seq started", UVM_LOW)
@@ -647,87 +640,14 @@ module tb_fifo_uvm ();
         .empty(f_if.empty)
     );
 
-    initial begin
-        $fsdbDumpfile("wave.fsdb");
-        $fsdbDumpvars(0, tb_fifo_uvm);
-    end
+    // initial begin
+    //     $fsdbDumpfile("wave.fsdb");
+    //     $fsdbDumpvars(0, tb_fifo_uvm);
+    // end
 
     initial begin
         uvm_config_db#(virtual fifo_if)::set(null, "*", "f_if", f_if);
         run_test("fifo_test");
     end
 endmodule
-
-
-
-
-// interface fifo_if (
-//     input clk
-// );
-//     logic       rst_n;
-//     logic       push;
-//     logic       pop;
-//     logic [7:0] wdata;
-//     logic [7:0] rdata;
-//     logic       full;
-//     logic       empty;
-// endinterface
-
-// module tb_fifo_uvm ();
-//     localparam WIDTH = 4;
-
-//     logic clk = 0;
-//     always #5 clk = ~clk;
-
-//     fifo_if f_if (clk);
-
-//     fifo_sv #(
-//         .WIDTH(WIDTH)
-//     ) dut (
-//         .clk  (clk),
-//         .rst_n(f_if.rst_n),
-//         .push (f_if.push),
-//         .pop  (f_if.pop),
-//         .wdata(f_if.wdata),
-//         .rdata(f_if.rdata),
-//         .full (f_if.full),
-//         .empty(f_if.empty)
-//     );
-
-//     initial begin
-//         // reset
-//         f_if.rst_n = 0;
-//         f_if.push  = 0;
-//         f_if.pop   = 0;
-//         f_if.wdata = 0;
-//         repeat (2) @(posedge clk);
-//         f_if.rst_n = 1;
-//         @(posedge clk);
-
-//         // full set
-//         for (int i = 0; i < 16; i++) begin
-//             f_if.push  = 1;
-//             f_if.pop   = 0;
-//             f_if.wdata = i;
-//             @(posedge clk);
-//         end
-//         f_if.push = 0;
-//         @(posedge clk);
-//         @(posedge clk);
-
-//         // pop_only && full=1
-//         f_if.push = 0;
-//         f_if.pop  = 1;
-//         @(posedge clk);
-//         f_if.pop = 0;
-
-//         repeat (50) @(posedge clk);
-//         $finish;
-//     end
-
-//     initial begin
-//         $fsdbDumpfile("wave.fsdb");
-//         $fsdbDumpvars(0, tb_fifo_uvm);
-//     end
-// endmodule
 

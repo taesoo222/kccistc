@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module fifo_sv #(
-    parameter WIDTH = 2
+    parameter WIDTH = 4
 ) (
     input        clk,
     input        rst_n,
