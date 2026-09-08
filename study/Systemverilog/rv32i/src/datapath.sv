@@ -216,27 +216,31 @@ module program_counter (
     input  logic        branch,
     input  logic        b_taken,
     input  logic [31:0] imm_extend,
-    output logic [31:0] pc
+    output logic [31:0] pc,
+    output logic [31:0] pc_imm,
+    output logic [31:0] pc_4
 );
     logic [31:0] register_pc;
-    logic [31:0] pcsrc_muxout;
-    logic        sel;
+    logic [31:0] pc_4, pc_imm, pc_next;
+    logic pc_srcsel;
 
-    assign sel = branch & b_taken;
-    assign pc  = register_pc;
+    assign pc = register_pc;
+    assign pc_srcsel = branch & b_taken;
+    assign pc_4 = pc + 4;
+    assign pc_imm = pc + imm_extend;
 
-    mux_2x1 U_PCSRC_MUX (
-        .sel(sel),
-        .in0(32'd4),
-        .in1(imm_extend),
-        .mux_out(pcsrc_muxout)
-    );
 
     always_ff @(posedge clk) begin
         if (!rst_n) register_pc <= 32'd0;
-        else register_pc <= register_pc + pcsrc_muxout;
+        else register_pc <= pc_next;
     end
 
+    mux_2x1 U_PCSRC_MUX (
+        .sel(pc_srcsel),
+        .in0(pc_4),
+        .in1(pc_imm),
+        .mux_out(pc_next)
+    );
 endmodule
 
 

@@ -13,9 +13,14 @@ module control_unit
     logic [2:0] funct3;
 
     opcode_e opcode;
-    assign opcode = opcode_e'(instr_code[6:0]);
+    instr_rtype_e instr_rtype;
+    instr_btype_e instr_btype;
 
+    assign opcode = opcode_e'(instr_code[6:0]);
     assign funct3 = instr_code[14:12];
+    //for debuging
+    assign instr_rtype = instr_rtype_e'(alu_control);
+    assign instr_btype = instr_btype_e'(funct3);
 
     always_comb begin
         rf_we       = 1'b0;
