@@ -9,6 +9,7 @@ module datapath (
     input  logic        rf_srcsel,
     input  logic [31:0] instr_code,
     input  logic [31:0] drdata,
+    input  logic        branch,
     output logic [31:0] instr_addr,
     output logic [31:0] daddr,
     output logic [31:0] dwdata
@@ -16,6 +17,7 @@ module datapath (
 
     logic [31:0] alu_result, rf_rd1, rf_rd2, alusrc_muxout, wb_muxout;
     logic [31:0] imm_extend;
+    logic b_taken;
 
     assign daddr  = alu_result;
     assign dwdata = rf_rd2;
@@ -46,7 +48,8 @@ module datapath (
         .rs1(rf_rd1),
         .rs2(alusrc_muxout),
         .alu_control(alu_control),
-        .alu_result(alu_result)
+        .alu_result(alu_result),
+        .b_taken(b_taken)
     );
 
     mux_2x1 U_WB_MUX (
@@ -57,9 +60,12 @@ module datapath (
     );
 
     program_counter U_PC (
-        .clk  (clk),
-        .rst_n(rst_n),
-        .o_pc (instr_addr)
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .b_taken   (b_taken),
+        .branch    (branch),
+        .imm_extend(imm_extend),
+        .pc        (instr_addr)
     );
 endmodule
 
@@ -133,11 +139,37 @@ module alu (
     always_comb begin
         b_taken = 1'b0;
         case (alu_control)
-            4'b0_000:
-            if (rs1 == rs2) b_taken = 1;
-            else b_taken = 0;  // BEQ
+            //BEQ
+            4'b0_000: begin
+                if ($signed(rs1) == $signed(rs2)) b_taken = 1'b1;
+                else b_taken = 1'b0;
+            end
+            //BNE
+            4'b0_001: begin
+                if ($signed(rs1) != $signed(rs2)) b_taken = 1'b1;
+                else b_taken = 1'b0;
+            end
+            //BLT
+            4'b0_100: begin
+                if ($signed(rs1) < $signed(rs2)) b_taken = 1'b1;
+                else b_taken = 1'b0;
+            end
+            //BGE
+            4'b0_101: begin
+                if ($signed(rs1) >= $signed(rs2)) b_taken = 1'b1;
+                else b_taken = 1'b0;
+            end
+            //BLTU
+            4'b0_110: begin
+                if (rs1 < rs2) b_taken = 1'b1;
+                else b_taken = 1'b0;
+            end
+            //BGEU
+            4'b0_111: begin
+                if (rs1 >= rs2) b_taken = 1'b1;
+                else b_taken = 1'b0;
+            end
         endcase
-
 
     end
 
@@ -166,10 +198,10 @@ module imm_extender
             OP_BTYPE:
             imm_extend = {
                 {20{instr_code[31]}},
-                instr_code[31],
                 instr_code[7],
                 instr_code[30:25],
-                instr_code[11:8]
+                instr_code[11:8],
+                1'b0
             };
             //20bit + 1bit + 1bit + 6bit + 4bit + 1bit
             default: imm_extend = 32'h0000_0000;
@@ -181,22 +213,30 @@ endmodule
 module program_counter (
     input  logic        clk,
     input  logic        rst_n,
-    input  logic [31:0] i_pc,
     input  logic        branch,
     input  logic        b_taken,
-    output logic [31:0] o_pc
+    input  logic [31:0] imm_extend,
+    output logic [31:0] pc
 );
     logic [31:0] register_pc;
+    logic [31:0] pcsrc_muxout;
     logic        sel;
-    logic alu0, alu1, o_alu;
 
-    assign sel  = branch & b_taken;
-    assign o_pc = register_pc;
+    assign sel = branch & b_taken;
+    assign pc  = register_pc;
+
+    mux_2x1 U_PCSRC_MUX (
+        .sel(sel),
+        .in0(32'd4),
+        .in1(imm_extend),
+        .mux_out(pcsrc_muxout)
+    );
 
     always_ff @(posedge clk) begin
         if (!rst_n) register_pc <= 32'd0;
-        else register_pc <= register_pc + 4;
+        else register_pc <= register_pc + pcsrc_muxout;
     end
+
 endmodule
 
 

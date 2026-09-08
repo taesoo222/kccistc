@@ -4,6 +4,7 @@ module control_unit
     input  logic [31:0] instr_code,
     output logic        rf_we,
     output logic        alusrc_sel,
+    output logic        branch,
     output logic [ 3:0] alu_control,
     output logic        rf_srcsel,
     output logic        dwe,
@@ -23,6 +24,7 @@ module control_unit
         rf_srcsel   = 1'b0;  // TO control for WB to reg_file,
         dwe         = 1'b0;
         itype       = 3'b010;  // SW,LW
+        branch      = 1'b0;
         case (opcode)
             OP_RTYPE: begin  // R-type
                 rf_we = 1'b1;
@@ -31,6 +33,7 @@ module control_unit
                 rf_srcsel   = 1'b0;  // TO control for WB to reg_file, 0 : alu_result, 1:drdata
                 dwe = 1'b0;
                 itype = 3'b000;  // SW,LW
+                branch = 1'b0;
             end
             OP_STYPE: begin  // S-type
                 rf_we       = 1'b0;
@@ -50,13 +53,22 @@ module control_unit
                 dwe   = 1'b0;
                 itype = 3'b111;  // data_mem default mode
             end
-            OP_ILTYPE: begin // IL-type
+            OP_ILTYPE: begin  // IL-type
                 rf_we       = 1'b1;
-                alusrc_sel  = 1'b1;     // to calculate data mem addr
-                alu_control = 4'd0;     // ADD RS1 +Imm
-                rf_srcsel   = 1'b1;     // To control for WB to reg_file
-                dwe         = 1'b0;     // load from data mem
-                itype       = funct3;   // SW,LW
+                alusrc_sel  = 1'b1;  // to calculate data mem addr
+                alu_control = 4'd0;  // ADD RS1 +Imm
+                rf_srcsel   = 1'b1;  // To control for WB to reg_file
+                dwe         = 1'b0;  // load from data mem
+                itype       = funct3;  // SW,LW
+            end
+            OP_BTYPE: begin
+                rf_we       = 1'b0;
+                alusrc_sel  = 1'b0;
+                branch      = 1'b1;
+                alu_control = {1'b0, funct3};
+                rf_srcsel   = 1'b0;
+                dwe         = 1'b0;
+                itype       = 3'b111;
             end
         endcase
     end
