@@ -42,7 +42,7 @@ module control_unit
                 alu_control = {instr_code[30], funct3};
                 rf_srcsel   = 3'd0;  // TO control for WB to reg_file, 0 : alu_result, 1:drdata
                 dwe = 1'b0;
-                itype = 3'b000;  // SW,LW
+                itype = 3'b000;
                 branch = 1'b0;
             end
             OP_STYPE: begin  // S-type
@@ -50,7 +50,6 @@ module control_unit
                 alusrc_sel  = 1'b1;
                 alu_control = 4'd0;
                 rf_srcsel   = 3'b0;
-
                 dwe         = 1'b1;
                 itype       = funct3;
             end

@@ -34,7 +34,32 @@ module data_mem (
         end
     end
 
-    //load 
-    assign drdata = dmem[daddr[31:2]];
+    // load
+    logic [31:0] rword;
+    logic [ 7:0] rbyte;
+    logic [15:0] rhalf;
+
+    assign rword = dmem[daddr[31:2]];
+
+    always_comb begin
+        // byte lane select
+        case (daddr[1:0])
+            2'b00:   rbyte = rword[7:0];
+            2'b01:   rbyte = rword[15:8];
+            2'b10:   rbyte = rword[23:16];
+            2'b11:   rbyte = rword[31:24];
+        endcase
+        // half lane select
+        rhalf = daddr[1] ? rword[31:16] : rword[15:0];
+
+        case (itype)
+            3'b000:  drdata = {{24{rbyte[7]}}, rbyte};    // LB
+            3'b001:  drdata = {{16{rhalf[15]}}, rhalf};   // LH
+            3'b010:  drdata = rword;                      // LW
+            3'b100:  drdata = {24'b0, rbyte};             // LBU
+            3'b101:  drdata = {16'b0, rhalf};             // LHU
+            default: drdata = rword;
+        endcase
+    end
 
 endmodule
