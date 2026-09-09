@@ -1,4 +1,4 @@
-`define SIMULATION 
+//`define SIMULATION 
 
 module datapath (
     input  logic        clk,
@@ -10,13 +10,15 @@ module datapath (
     input  logic [31:0] instr_code,
     input  logic [31:0] drdata,
     input  logic        branch,
+    input  logic        jal,
+    input  logic        jalr,
     output logic [31:0] instr_addr,
     output logic [31:0] daddr,
     output logic [31:0] dwdata
 );
 
-    logic [31:0] alu_result, rf_rd1, rf_rd2, alusrc_muxout, wb_muxout;
-    logic [31:0] imm_extend;
+    logic [31:0] alu_result, rf_rd1, rf_rd2;
+    logic [31:0] imm_extend, alusrc_muxout, wb_muxout;
     logic [31:0] pc_imm, pc_4;
     logic b_taken;
 
@@ -53,27 +55,29 @@ module datapath (
         .b_taken    (b_taken)
     );
 
-    mux_5x1 U_WB_MUX (
-        .sel(rf_srcsel),
-        .in0(alu_result),
-        .in1(drdata),
-        .in2(imm_extend),
-        .in3(pc_imm),
-        .in4(pc_4),
+    mux_wb U_WB_MUX (
+        .sel    (rf_srcsel),
+        .in0    (alu_result),  // Load Memory
+        .in1    (drdata),
+        .in2    (imm_extend),
+        .in3    (pc_imm),
+        .in4    (pc_4),
         .mux_out(wb_muxout)
     );
 
     program_counter U_PC (
-        .clk(clk),
-        .rst_n(rst_n),
-        .branch(branch),
-        .b_taken(b_taken),
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .branch    (branch),
+        .b_taken   (b_taken),
+        .jal       (jal),
+        .jalr      (jalr),
         .imm_extend(imm_extend),
-        .pc(instr_addr),
-        .pc_imm(pc_imm),
-        .pc_4(pc_4)
+        .rs1       (rf_rd1),
+        .pc        (instr_addr),
+        .pc_4      (pc_4),
+        .pc_imm    (pc_imm)
     );
-
 
 endmodule
 
@@ -87,7 +91,7 @@ module mux_2x1 (
 
 endmodule
 
-module mux_5x1 (
+module mux_wb (
     input  logic [ 2:0] sel,
     input  logic [31:0] in0,
     input  logic [31:0] in1,
@@ -123,13 +127,7 @@ module reg_file (
     logic [31:0] ram_file[1:31];
 
     always_ff @(posedge clk) begin
-        if (!rst_n) begin
-`ifdef SIMULATION
-            for (int i = 0; i < 32; i++) ram_file[i] <= i;
-`else
-            for (int i = 0; i < 32; i++) ram_file[i] <= 0;
-`endif
-        end else if (we) ram_file[wa] <= wd;
+        if (we) ram_file[wa] <= wd;
     end
 
     assign rd1 = (ra1 != 0) ? ram_file[ra1] : 32'd0;
@@ -221,7 +219,7 @@ module imm_extender
             imm_extend = {
                 {20{instr_code[31]}}, instr_code[31:25], instr_code[11:7]
             };
-            OP_ITYPE, OP_ILTYPE:
+            OP_ITYPE, OP_ILTYPE, OP_JLTYPE:
             imm_extend = {{20{instr_code[31]}}, instr_code[31:20]};
             OP_BTYPE:
             imm_extend = {
@@ -231,15 +229,20 @@ module imm_extender
                 instr_code[11:8],
                 1'b0
             };
-            // LUI
-            OP_U_LUI: begin
+            // LUI, AUIPC
+            OP_ULTYPE, OP_UATYPE: begin
                 imm_extend = {instr_code[31:12], 12'b0};
             end
-            // AUIPC
-            OP_U_AUIPC: begin
-                imm_extend = {instr_code[31:12], 12'b0};
+            OP_JTYPE: begin
+                imm_extend = {
+                    {12{instr_code[31]}},
+                    instr_code[19:12],
+                    instr_code[20],
+                    instr_code[30:21],
+                    1'b0
+                };
             end
-            //20bit + 1bit + 1bit + 6bit + 4bit + 1bit
+
             default: imm_extend = 32'h0000_0000;
         endcase
     end
@@ -251,19 +254,23 @@ module program_counter (
     input  logic        rst_n,
     input  logic        branch,
     input  logic        b_taken,
+    input  logic        jal,
+    input  logic        jalr,
     input  logic [31:0] imm_extend,
+    input  logic [31:0] rs1,
     output logic [31:0] pc,
-    output logic [31:0] pc_imm,
-    output logic [31:0] pc_4
+    output logic [31:0] pc_4,
+    output logic [31:0] pc_imm       // pc_imm
 );
     logic [31:0] register_pc;
     logic [31:0] pc_next;
-    logic pc_srcsel;
+    logic [31:0] pc_jalr;
+    logic        pc_srcsel;
 
-    assign pc = register_pc;
-    assign pc_srcsel = branch & b_taken;
-    assign pc_4 = pc + 4;
-    assign pc_imm = pc + imm_extend;
+    assign pc        = register_pc;
+    assign pc_srcsel = ((jalr) | (jal) | (branch & b_taken));
+    assign pc_4      = pc + 4;
+    assign pc_imm    = pc_jalr + imm_extend;
 
 
     always_ff @(posedge clk) begin
@@ -271,12 +278,20 @@ module program_counter (
         else register_pc <= pc_next;
     end
 
-    mux_2x1 U_PCSRC_MUX (
+    mux_2x1 U_PC_RS1_MUX (
+        .sel(jalr),
+        .in0(pc),
+        .in1(rs1),
+        .mux_out(pc_jalr)
+    );
+
+    mux_2x1 U_PC_IMM_MUX (
         .sel(pc_srcsel),
         .in0(pc_4),
         .in1(pc_imm),
         .mux_out(pc_next)
     );
+
 endmodule
 
 

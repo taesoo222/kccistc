@@ -6,12 +6,14 @@ package rv32i_pkg;
         OP_ITYPE   = 7'b001_0011,
         OP_ILTYPE  = 7'b000_0011,
         OP_BTYPE   = 7'b110_0011,
-        OP_U_LUI   = 7'b011_0111,
-        OP_U_AUIPC = 7'b001_0111
+        OP_ULTYPE   = 7'b011_0111,
+        OP_UATYPE = 7'b001_0111,
+        OP_JTYPE   = 7'b110_1111, //JAL
+        OP_JLTYPE  = 7'b110_0111  // JALR
     } opcode_e;
     //
     // rv32i instruction enum type
-    typedef enum logic [4:0] {
+    typedef enum logic [3:0] {
         ADD  = 4'b0000,
         SUB  = 4'b1000,
         SLL  = 4'b0001,

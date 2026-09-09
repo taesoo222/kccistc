@@ -8,7 +8,9 @@ module control_unit
     output logic [ 3:0] alu_control,
     output logic [ 2:0] rf_srcsel,
     output logic        dwe,
-    output logic [ 2:0] itype         // instruction tpye : funct3
+    output logic [ 2:0] itype,        // instruction tpye : funct3
+    output logic        jal,
+    output logic        jalr
 );
     logic [2:0] funct3;
 
@@ -31,6 +33,8 @@ module control_unit
         dwe         = 1'b0;
         itype       = 3'b010;  // SW,LW
         branch      = 1'b0;
+        jal         = 1'b0;
+        jalr        = 1'b0;
         case (opcode)
             OP_RTYPE: begin  // R-type
                 rf_we = 1'b1;
@@ -61,6 +65,7 @@ module control_unit
             end
             OP_ILTYPE: begin  // IL-type
                 rf_we       = 1'b1;
+                branch      = 1'b0;
                 alusrc_sel  = 1'b1;  // to calculate data mem addr
                 alu_control = 4'd0;  // ADD RS1 +Imm
                 rf_srcsel   = 3'd1;  // To control for WB to reg_file
@@ -77,25 +82,28 @@ module control_unit
                 itype       = 3'b111;
             end
             // U : LUI (rd = imm)
-            OP_U_LUI: begin
-                rf_we       = 1'b1;
-                alusrc_sel  = 1'b0;
-                branch      = 1'b0;
-                alu_control = 4'd0;
-                rf_srcsel   = 3'd2;
-                dwe         = 1'b0;
-                itype       = 3'b111;
+            OP_ULTYPE: begin
+                rf_we     = 1'b1;
+                rf_srcsel = 3'd2;
             end
             // U : AUIPC
-            OP_U_AUIPC: begin
-                rf_we       = 1'b1;
-                alusrc_sel  = 1'b0;
-                branch      = 1'b0;
-                alu_control = 4'd0;
-                rf_srcsel   = 3'd3;
-                dwe         = 1'b0;
-                itype       = 3'b111;
+            OP_UATYPE: begin
+                rf_we     = 1'b1;
+                rf_srcsel = 3'd3;
             end
+            OP_JLTYPE: begin
+                rf_we     = 1'b1;
+                rf_srcsel = 3'd4;
+                jal       = 1'b0;
+                jalr      = 1'b1;
+            end
+            OP_JTYPE: begin
+                rf_we     = 1'b1;
+                rf_srcsel = 3'd4;
+                jal       = 1'b1;
+                jalr      = 1'b0;
+            end
+
         endcase
     end
 
