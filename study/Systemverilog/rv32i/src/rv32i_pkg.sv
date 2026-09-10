@@ -1,15 +1,15 @@
 package rv32i_pkg;
 
     typedef enum logic [6:0] {
-        OP_RTYPE   = 7'b011_0011,
-        OP_STYPE   = 7'b010_0011,
-        OP_ITYPE   = 7'b001_0011,
-        OP_ILTYPE  = 7'b000_0011,
-        OP_BTYPE   = 7'b110_0011,
-        OP_ULTYPE   = 7'b011_0111,
+        OP_RTYPE  = 7'b011_0011,
+        OP_STYPE  = 7'b010_0011,
+        OP_ITYPE  = 7'b001_0011,
+        OP_ILTYPE = 7'b000_0011,
+        OP_BTYPE  = 7'b110_0011,
+        OP_ULTYPE = 7'b011_0111,
         OP_UATYPE = 7'b001_0111,
-        OP_JTYPE   = 7'b110_1111, //JAL
-        OP_JLTYPE  = 7'b110_0111  // JALR
+        OP_JTYPE  = 7'b110_1111,  //JAL
+        OP_JLTYPE = 7'b110_0111   // JALR
     } opcode_e;
     //
     // rv32i instruction enum type
@@ -35,5 +35,12 @@ package rv32i_pkg;
         BGEU = 3'b111
     } instr_btype_e;
 
+    typedef enum logic [2:0] {
+        FETCH = 3'b000,
+        DECODE = 3'b001,
+        EXECUTE = 3'b010,
+        MEM = 3'b011,
+        WB = 3'b100
+    } state_e;
 endpackage
 

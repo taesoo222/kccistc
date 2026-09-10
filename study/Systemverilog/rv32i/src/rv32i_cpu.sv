@@ -29,13 +29,14 @@ module rv32i_cpu (
     output logic        dwe,
     output logic [ 2:0] itype
 );
+    logic       pc_en;
     logic       rf_we;
     logic       alusrc_sel;
     logic [3:0] alu_control;
     logic [2:0] rf_srcsel;
     logic       branch;
-    logic        jalr;
-    logic        jal;
+    logic       jalr;
+    logic       jal;
 
     control_unit U_CONTROL_UNIT (.*);
 
