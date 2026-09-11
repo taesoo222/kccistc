@@ -11,11 +11,11 @@ module datapath (
     input  logic        branch,
     input  logic        jal,
     input  logic        jalr,
-    input  logic [31:0] drdata,
+    input  logic [31:0] bus_rdata,
     input  logic [31:0] instr_code,
     output logic [31:0] instr_addr,
-    output logic [31:0] daddr,
-    output logic [31:0] dwdata
+    output logic [31:0] bus_addr,
+    output logic [31:0] bus_wdata
 );
 
     logic [31:0] alu_result, rf_rd1, rf_rd2, pc_4, pc_imm;
@@ -30,8 +30,8 @@ module datapath (
     logic b_taken;
 
 
-    assign daddr  = exe2mem_alu;
-    assign dwdata = exe2mem_rs2;
+    assign bus_addr = exe2mem_alu;
+    assign bus_wdata = exe2mem_rs2;
 
     reg_file U_REG_FILE (
         .clk(clk),
@@ -86,7 +86,7 @@ module datapath (
     register U_MEM_RDATA (
         .clk(clk),
         .rst_n(rst_n),
-        .data_in(drdata),
+        .data_in(bus_rdata),
         .data_out(mem2wb_rdata)
     );
 
