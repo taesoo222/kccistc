@@ -19,7 +19,7 @@ module instruction_rom (
     end
 `endif
 
-    initial $readmemh("./rtl/rom_code_ex1.mem", instr_rom);
+    initial $readmemh("rom_code_apb_gpio.mem", instr_rom);
     assign instr_code = instr_rom[instr_addr[31:2]];
 
 endmodule

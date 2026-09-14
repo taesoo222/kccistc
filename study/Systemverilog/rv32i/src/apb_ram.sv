@@ -14,7 +14,7 @@ module apb_bram (
     assign PREADY = (PENABLE & PSEL) ? 1'b1 : 1'b0;
 
     always_ff @(posedge clk) begin
-        if (PREADY) begin
+        if (PREADY & PWRITE) begin
             case (itype)
                 // SB
                 3'b000: begin

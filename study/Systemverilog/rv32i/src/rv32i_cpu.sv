@@ -1,8 +1,13 @@
 module rv32i_top (
-    input clk,
-    input rst_n
+    input               clk,
+    input               rst,
+    input  logic [11:0] sw,
+    output logic [11:0] led
 );
-    // rv32 cpu interface
+    logic rst_n;
+    assign rst_n = ~rst;
+
+    // rv32 cpu
     logic [31:0] instr_code;
     logic [31:0] instr_addr;
     logic [31:0] bus_addr;
@@ -13,7 +18,7 @@ module rv32i_top (
     logic        transfer;
     logic [ 2:0] itype;
 
-    // APB interface
+    // apb bus
     logic        PREADY0;
     logic        PREADY1;
     logic        PREADY2;
@@ -30,8 +35,8 @@ module rv32i_top (
     logic [31:0] PRDATA6;
     logic [31:0] PADDR;
     logic [31:0] PWDATA;
-    logic        PWRITE;
     logic        PENABLE;
+    logic        PWRITE;
     logic        PSEL0;
     logic        PSEL1;
     logic        PSEL2;
@@ -41,29 +46,49 @@ module rv32i_top (
     logic        PSEL6;
 
     instruction_rom U_INSTR_ROM (.*);
-
     rv32i_cpu U_RV32I_CPU (.*);
 
-    apb_requester U_APB_REQ (.*);
-
-    //data_mem U_DATA_MEM (.*);
-
+    apb_requester U_APB_REQUESTER (.*);
     apb_bram U_APB_BRAM (
         .*,
         .PSEL  (PSEL0),
         .PREADY(PREADY0),
         .PRDATA(PRDATA0)
     );
+    apb_gpi U_APB_GPI (
+        .*,
+        .PSEL  (PSEL1),
+        .PREADY(PREADY1),
+        .PRDATA(PRDATA1),
+        .GPI_IN   (sw[7:0])
+    );
 
+    apb_gpo U_APB_GPO (
+        .*,
+        .PSEL  (PSEL2),
+        .PREADY(PREADY2),
+        .PRDATA(PRDATA2),
+        .led   (led[7:0])
 
+    );
+
+    // apb_gpio U_APB_GPIO (
+    //     .*,
+    //     .PSEL  (PSEL3),
+    //     .PREADY(PREADY3),
+    //     .PRDATA(PRDATA3)
+
+    // );
+
+    //data_memory U_DATA_MEM(.*);
 endmodule
 
 module rv32i_cpu (
     input  logic        clk,
     input  logic        rst_n,
+    input  logic        ready,
     input  logic [31:0] instr_code,
     input  logic [31:0] bus_rdata,
-    input  logic        ready,
     output logic [31:0] instr_addr,
     output logic [31:0] bus_addr,
     output logic [31:0] bus_wdata,
@@ -71,14 +96,9 @@ module rv32i_cpu (
     output logic        transfer,
     output logic [ 2:0] itype
 );
-    logic       pc_en;
-    logic       rf_we;
-    logic       alusrc_sel;
-    logic [3:0] alu_control;
+    logic rf_we, alusrc_sel, branch, jal, jalr, pc_en;
     logic [2:0] rf_srcsel;
-    logic       branch;
-    logic       jalr;
-    logic       jal;
+    logic [3:0] alu_control;
 
     control_unit U_CONTROL_UNIT (.*);
 
