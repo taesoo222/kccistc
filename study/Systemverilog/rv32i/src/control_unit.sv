@@ -24,14 +24,11 @@ module control_unit
     instr_rtype_e       instr_rtype;
     state_e c_state, n_state;
 
-
     assign funct3 = instr_code[14:12];
     assign opcode = opcode_e'(instr_code[6:0]);
     //for debuging
     assign instr_rtype = instr_rtype_e'(alu_control);
     assign instr_btype = instr_btype_e'(funct3);
-
-
 
     always_ff @(posedge clk) begin
         if (!rst_n) c_state <= FETCH;
@@ -127,15 +124,18 @@ module control_unit
                         bus_we = 1'b1;
                         if(ready) n_state = FETCH;
                     end 
-                    else n_state = WB; // OP_ILTYPE
+                    else 
+                    if (ready) n_state = WB; // OP_ILTYPE
                 end
 
                 WB: begin
+                    itype     = funct3;
                     rf_we     = 1'b1;
                     rf_srcsel = 3'd1;
-                    if(ready) n_state   = FETCH;
+                    n_state   = FETCH;
                 end
             endcase
         end
+
 
 endmodule
