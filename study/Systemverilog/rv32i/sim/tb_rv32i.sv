@@ -16,7 +16,7 @@ module tb_rv32i_cpu ();
     initial begin
         #10;
         rst = 0;
-        sw = 12'h05a;
+        sw = 12'h0ff;
 
         #15000;
         $finish;
