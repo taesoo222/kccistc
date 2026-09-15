@@ -294,6 +294,9 @@ class apb_req_scoreboard extends uvm_scoreboard;
 
     int pass_cnt = 0, fail_cnt = 0;
 
+    // BRAM(PSEL0) 전용 shadow memory : write 한 값을 기억해뒀다가 read 와 대조 (RAW 체크)
+    logic [31:0] bram_shadow[bit[27:0]];
+
     function new(string name = "apb_req_scb", uvm_component p = null);
         super.new(name, p);
     endfunction
@@ -356,6 +359,25 @@ class apb_req_scoreboard extends uvm_scoreboard;
                        "PWDATA mismatch! exp=%08h got=%08h", item.bus_wdata,
                        item.pwdata));
             ok = 1'b0;
+        end
+
+        // 검증 4: BRAM RAW (write 한 값이 read 로 정확히 돌아오는지)
+        if (exp_sel[0]) begin  // BRAM 접근일 때만
+            if (item.bus_we) begin
+                bram_shadow[item.bus_addr[27:0]] = item.bus_wdata;
+            end else begin
+                logic [31:0] exp_rdata;
+                exp_rdata = bram_shadow.exists(
+                    item.bus_addr[27:0]
+                ) ? bram_shadow[item.bus_addr[27:0]] : 32'h0;
+
+                if (item.bus_rdata !== exp_rdata) begin
+                    `uvm_error("SCB", $sformatf(
+                               "BRAM RAW mismatch! addr=%08h exp=%08h got=%08h",
+                               item.bus_addr, exp_rdata, item.bus_rdata));
+                    ok = 1'b0;
+                end
+            end
         end
 
         if (ok) pass_cnt++;
