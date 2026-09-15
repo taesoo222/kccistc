@@ -393,6 +393,25 @@ class apb_req_coverage extends uvm_subscriber #(apb_req_seq_item);
             bins undecoded  = {7'b0000000};
         }
         cx_we_sel: cross cp_we, cp_sel;
+
+        // BRAM 영역 내부 주소가 골고루 찍혔는지
+        cp_addr: coverpoint item.bus_addr {
+            bins bram_low   = {[32'h1000_0000 : 32'h1000_007F]};
+            bins bram_mid   = {[32'h1000_0080 : 32'h1000_00FF]};
+            bins bram_high  = {[32'h1000_0100 : 32'h1000_01FF]};
+            bins gpi        = {32'h2000_0000};
+            bins gpo        = {32'h2000_0100};
+            bins undecoded  = {32'h3000_0000};
+        }
+
+        // write 데이터의 corner case가 나왔는지
+        cp_wdata: coverpoint item.bus_wdata {
+            bins zero    = {32'h0000_0000};
+            bins all_one = {32'hFFFF_FFFF};
+            bins others  = default;
+        }
+
+        cx_wdata_addr: cross cp_wdata, cp_addr;
     endgroup
 
     function new(string name = "apb_req_cov", uvm_component c = null);
@@ -406,8 +425,16 @@ class apb_req_coverage extends uvm_subscriber #(apb_req_seq_item);
     endfunction
 
     virtual function void report_phase(uvm_phase phase);
-        `uvm_info("COV", $sformatf("Overall coverage = %.1f %%",
+        `uvm_info("COV", $sformatf("Overall  = %.1f %%",
                                     apb_req_cg.get_coverage()), UVM_NONE);
+        `uvm_info("COV", $sformatf("we       = %.1f %%",
+                                    apb_req_cg.cp_we.get_coverage()), UVM_NONE);
+        `uvm_info("COV", $sformatf("sel      = %.1f %%",
+                                    apb_req_cg.cp_sel.get_coverage()), UVM_NONE);
+        `uvm_info("COV", $sformatf("addr     = %.1f %%",
+                                    apb_req_cg.cp_addr.get_coverage()), UVM_NONE);
+        `uvm_info("COV", $sformatf("wdata    = %.1f %%",
+                                    apb_req_cg.cp_wdata.get_coverage()), UVM_NONE);
     endfunction
 endclass
 
