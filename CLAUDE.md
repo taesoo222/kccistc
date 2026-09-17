@@ -9,7 +9,6 @@ uses this GitHub repo (`taesoo222/kccistc`) as the single sync point.
 Project/              complete projects
 study/Systemverilog/  SystemVerilog / UVM work
 study/Verilog/        Verilog exercises
-scripts/              sync tooling
 ```
 
 Each project folder tracks **only** hand-written sources:
@@ -21,46 +20,46 @@ Each project folder tracks **only** hand-written sources:
 └── constrs/    *.xdc constraints (when the project has any)
 ```
 
+## Repo tooling: what's for whom
+
+- **`.gitignore`** — read by `git`. Filters out everything Vivado's GUI
+  generates locally (`*.srcs/`, `*.cache/`, `*.runs/`, `*.xpr`, `.jou`, `.log`,
+  `.wdb`, …) plus OS junk, so none of it gets committed.
+- **`CLAUDE.md`** (this file) — read by Claude Code at session start as
+  project instructions, so it understands the layout and conventions below
+  without being told each time.
+
 ## Vivado projects live OUTSIDE this repo (Option B)
 
 Actual Vivado projects (`.xpr`, `.srcs/`, `.cache/`, …) sit under a **workspace
 root**, default `E:\work\2026_AI_COMP\<project>\`. They are **not** committed.
-`.gitignore` drops `*.xpr` and every Vivado-generated dir. On the other machine
-the workspace root may differ — set it once in
-`scripts/workspace-root.local` (git-ignored) or pass `-WorkspaceRoot`.
+`.gitignore` drops `*.xpr` and every Vivado-generated dir.
 
 `.xpr` is intentionally not tracked: it is machine-specific and churns on every
 GUI action. Recreate the project locally (New Project → Add Sources pointing at
 `src/ sim/ constrs/`) or from a `create_project.tcl` if one is added.
 
-## Sync workflow
+## Sync workflow (manual)
 
-`scripts/sync.ps1` copies sources between a Vivado project and this repo,
-using the map in `scripts/projects.json` (`{ "vivado": <folder>, "repo": <category/project> }`).
+No script — copy files by hand between the Vivado workspace and this repo.
 
 ```powershell
 # start of a session
 git pull --rebase
-.\scripts\sync.ps1 pull                 # repo -> Vivado workspace
+# copy src/ sim/ constrs/ from the repo project folder into the Vivado
+# project's sources_1/ sim_1/ constrs_1/ (Add Sources for anything new)
 
 # end of a session
-.\scripts\sync.ps1 push                 # Vivado workspace -> repo
+# copy changed files back from sources_1/ sim_1/ constrs_1/ into
+# the repo's src/ sim/ constrs/
 git add -A && git commit -m "..." && git push
 ```
-
-- `push` flattens `sources_1/** → src/`, `sim_1/** → sim/`, `constrs_1/**.xdc → constrs/`.
-- `pull` overwrites each repo file at its existing path inside the Vivado
-  project; a file that exists only in the repo lands in `<area>/new/` and needs
-  **Add Sources** in Vivado.
-- `push` refuses to overwrite real repo code with a freshly-created empty Vivado
-  template (wrong-direction guard); `-Force` overrides. `-DryRun` previews.
-  `-Mirror` also removes files deleted on the other side.
 
 ## Adding a new project
 
 1. Create/keep the Vivado project under the workspace root.
-2. Add a line to `scripts/projects.json`.
-3. `.\scripts\sync.ps1 push -Project <name>` then commit.
+2. Create `<category>/<project>/{src,sim,constrs}` in the repo and copy the
+   matching sources in by hand.
 
 ## Conventions
 
