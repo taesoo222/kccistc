@@ -21,6 +21,26 @@ Each project folder tracks **only** hand-written sources:
 └── constrs/    *.xdc constraints (when the project has any)
 ```
 
+## Repo tooling: what's for whom
+
+Three files carry the "why" of this repo's setup, each read by a different
+reader — they can't be merged into one file without breaking, since each
+name/format is fixed by the tool that consumes it:
+
+- **`.gitignore`** — read by `git`. Filters out everything Vivado's GUI
+  generates locally (`*.srcs/`, `*.cache/`, `*.runs/`, `*.xpr`, `.jou`, `.log`,
+  `.wdb`, …) plus OS junk, so none of it gets committed. Also excludes
+  `scripts/workspace-root.local` (the per-PC path override — deliberately
+  local, not shared).
+- **`scripts/sync.ps1` + `scripts/projects.json`** — run by hand in
+  PowerShell, on whichever of the two machines you're on. Copies real source
+  files between the external Vivado workspace and this repo's
+  `src/ sim/ constrs/` folders (see **Sync workflow** below). Not read by git
+  or by Claude — it's the owner's own manual workflow tool.
+- **`CLAUDE.md`** (this file) — read by Claude Code at session start as
+  project instructions, so it understands the layout, sync workflow, and
+  conventions above without being told each time.
+
 ## Vivado projects live OUTSIDE this repo (Option B)
 
 Actual Vivado projects (`.xpr`, `.srcs/`, `.cache/`, …) sit under a **workspace
