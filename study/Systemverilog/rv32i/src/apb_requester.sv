@@ -52,9 +52,17 @@ module apb_requester (
     logic [31:0] temp_PWDATA, temp_PWDATA_next;
     logic temp_PWRITE, temp_PWRITE_next;
 
+    localparam int ACCESS_TIMEOUT_CYCLES = 16;
+    logic [4:0] access_cnt, access_cnt_next;
+    logic access_timeout;
+    logic mux_ready;
+    logic [31:0] mux_rdata;
+
     assign PADDR  = {4'b0000, temp_PADDR[27:0]};
     assign PWDATA = temp_PWDATA;
     assign PWRITE = temp_PWRITE;
+    assign ready     = mux_ready | access_timeout;
+    assign bus_rdata = mux_rdata;
 
 
     always_ff @(posedge clk) begin
@@ -63,11 +71,28 @@ module apb_requester (
             temp_PADDR <= 32'h0;
             temp_PWDATA <= 32'h0;
             temp_PWRITE <= 1'b0;
+            access_cnt <= '0;
         end else begin
             c_state <= n_state;
             temp_PADDR <= temp_PADDR_next;
             temp_PWDATA <= temp_PWDATA_next;
             temp_PWRITE <= temp_PWRITE_next;
+            access_cnt <= access_cnt_next;
+        end
+    end
+
+    always_comb begin
+        access_cnt_next = access_cnt;
+        access_timeout  = 1'b0;
+        if (c_state == ACCESS && !mux_ready) begin
+            if (access_cnt == ACCESS_TIMEOUT_CYCLES - 1) begin
+                access_timeout  = 1'b1;
+                access_cnt_next = '0;
+            end else begin
+                access_cnt_next = access_cnt + 1'b1;
+            end
+        end else begin
+            access_cnt_next = '0;
         end
     end
 
@@ -110,7 +135,9 @@ module apb_requester (
 
 
     apb_mux U_APB_MUX (
-        .sel(mux_sel),
+        .sel      (mux_sel),
+        .ready    (mux_ready),
+        .bus_rdata(mux_rdata),
         .*
     );
 
