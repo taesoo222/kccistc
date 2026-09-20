@@ -6,6 +6,7 @@ module instruction_rom (
 
     logic [31:0] instr_rom[0:127];
 
+/* temp test
 `ifdef SIMULATION_TEST
     initial begin
         instr_rom[0] = 32'h0041_82b3;  // add x5, x3, x4 
@@ -18,6 +19,7 @@ module instruction_rom (
         instr_rom[7] = 32'h0000_1497;  // auipc x9, 0x00001
     end
 `endif
+*/
 
     initial $readmemh("rom_code_apb_gpio.mem", instr_rom);
     assign instr_code = instr_rom[instr_addr[31:2]];
