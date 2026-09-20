@@ -248,9 +248,9 @@ module alu (
             4'b0_100: alu_result = rs1 ^ rs2;  // xor
             4'b0_110: alu_result = rs1 | rs2;  // or
             4'b0_111: alu_result = rs1 & rs2;  // and
-            4'b0_001: alu_result = rs1 << rs2;  // sll
-            4'b0_101: alu_result = rs1 >> rs2;  // srl
-            4'b1_101: alu_result = $signed(rs1) >>> rs2;  //sra
+            4'b0_001: alu_result = rs1 << rs2[4:0];  // sll
+            4'b0_101: alu_result = rs1 >> rs2[4:0];  // srl
+            4'b1_101: alu_result = $signed(rs1) >>> rs2[4:0];  //sra
             4'b0_010:
             alu_result = ($signed(rs1) < $signed(rs2)) ? 32'd1 : 32'd0;  //slt
             4'b0_011: alu_result = (rs1 < rs2) ? 32'd1 : 32'd0;  //sltu
