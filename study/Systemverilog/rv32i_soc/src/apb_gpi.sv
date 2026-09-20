@@ -21,7 +21,7 @@ module apb_gpi (
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
-            GPI_CTR = 8'h0;
+            GPI_CTR <= 8'h0;
         end else begin
             if (PREADY & PWRITE) begin
                 if (PADDR[7:0] == GPI_CTR_ADDR) GPI_CTR <= PWDATA;
