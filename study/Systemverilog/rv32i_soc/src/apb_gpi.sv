@@ -37,7 +37,7 @@ module apb_gpi (
     genvar i;
     generate
         for (i = 0; i < 8; i++) begin
-            assign GPI_IDR[7:0] = (GPI_CTR[i]) ? GPI_IN[i] : 1'bz;
+            assign GPI_IDR[i] = (GPI_CTR[i]) ? GPI_IN[i] : 1'bz;
         end
     endgenerate
 
