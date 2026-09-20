@@ -10,7 +10,7 @@ RISC-V is an open ISA, and RV32I is its most fundamental, mandatory instruction 
 - Load/store architecture: memory is accessed only through dedicated instructions such as `lw`/`sw`
 - Supports arithmetic/logical operations (R-type), immediate operations (I-type), branches (B-type), jumps (J-type), and upper-immediate loads (U-type)
 
-This project implements a CPU that processes RV32I instructions in SystemVerilog, and controls peripherals (such as GPIO) over an APB bus.
+This project implements a CPU that processes RV32I instructions in SystemVerilog, and controls peripherals (such as GPI,GPO,GPIO<Not Yet>,UART<Not Yet>) over an APB bus.
 
 ## Project Structure
 
@@ -52,5 +52,3 @@ rv32i/
 - `sim/tb_rv32i.sv`: standard SystemVerilog testbench
 - `sim/tb_rv32i_uvm.sv`: UVM-based testbench
 - `src/rom_code_sw_sumtest.mem`, `src/rom_code_apb_gpi_gpo.mem`: instruction ROM images used during simulation
-
-To run this in Vivado, use the sync workflow (`scripts/sync.ps1`) described in `CLAUDE.md` to pull this folder's `src/` and `sim/` files into a Vivado project, then set it up via New Project.
