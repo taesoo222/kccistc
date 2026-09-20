@@ -53,4 +53,3 @@ rv32i/
 - `sim/tb_rv32i_uvm.sv`: UVM 환경 기반 테스트벤치
 - `src/rom_code_sw_sumtest.mem`, `src/rom_code_apb_gpi_gpo.mem`: 시뮬레이션에 사용되는 명령어 ROM 이미지
 
-Vivado에서 실행하려면 `CLAUDE.md`의 sync 워크플로우(`scripts/sync.ps1`)로 이 폴더의 `src/`, `sim/` 파일을 Vivado 프로젝트로 pull한 뒤 New Project로 구성하면 됩니다.
