@@ -21,7 +21,11 @@ module instruction_rom (
 `endif
 */
 
-    initial $readmemh("rom_code_apb_gpio.mem", instr_rom);
+    ////////// gpi & gpo test //////////
+    initial $readmemh("rom_code_apb_gpi_gpo.mem", instr_rom);
+
+    ////////// sw_sumtest //////////
+    // initial $readmemh("rom_code_apb_gpi_gpo.mem", instr_rom); 
     assign instr_code = instr_rom[instr_addr[31:2]];
 
 endmodule
