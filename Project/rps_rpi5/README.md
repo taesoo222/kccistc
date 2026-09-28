@@ -46,3 +46,18 @@ python test_gesture.py
 - A finger is misread → change `EXTEND_RATIO` in `gesture.py`.
 - The "now:" line on screen shows the live classification; `-` means no hand or an unclear pose.
 - Slow → lower resolution with `--width 320 --height 240`.
+
+---
+
+## Version 2: `rps_tflite.py` (cvzone + your own TFLite model)
+
+Same game flow, but recognition follows the class reference code:
+cvzone `HandDetector` bbox → crop (+30 px on left/top/right) → pad to a white square
+→ TFLite classifier (`0 scissors, 1 rock, 2 paper`).
+
+```bash
+pip install ai-edge-litert cvzone
+python rps_tflite.py --model sample_01.tflite   # model file is not committed (*.tflite ignored)
+```
+
+If your model's class order differs, edit `ansToText` at the top of `rps_tflite.py`.
