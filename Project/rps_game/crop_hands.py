@@ -18,7 +18,7 @@ import numpy as np
 
 CLASSES = ['scissors', 'rock', 'paper']   # 모델 출력 순서: 0 가위, 1 바위, 2 보
 IMG_SIZE = 224
-OFFSET = 60   # 640x480 기준 (320x240 에서 30px 과 같은 비율)
+OFFSET = 30   # 640x480 기준. 배경을 줄이려고 60 -> 30 (바꾸면 train/test 다시 자르고 재학습)
 
 
 def crop_box(bbox, frame_w, frame_h, offset=OFFSET):
