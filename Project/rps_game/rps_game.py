@@ -42,8 +42,16 @@ ICONS = {c: cv2.imread(str(Path(__file__).with_name('icons') / f'{c}.png'), cv2.
          for c in CLASSES}
 
 
+def jpeg_roundtrip(img, quality=95):
+    """JPEG 로 압축했다가 다시 푼다. 학습 사진은 capture.py 와 crop_hands.py 에서
+    cv2.imwrite (기본 품질 95) 로 두 번 JPEG 저장되므로, 게임 입력도 같은 과정을 거치게 한다."""
+    ok, buf = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    return cv2.imdecode(buf, cv2.IMREAD_COLOR) if ok else img
+
+
 class RpsModel:
-    def __init__(self, path):
+    def __init__(self, path, jpeg=True):
+        self.jpeg = jpeg
         self.it = Interpreter(model_path=path)
         self.it.allocate_tensors()
         self.inp = self.it.get_input_details()[0]
@@ -53,6 +61,8 @@ class RpsModel:
     def predict(self, hand_bgr):
         """-> (클래스 이름, 확률)"""
         img = make_square_img(hand_bgr, self.size)
+        if self.jpeg:
+            img = jpeg_roundtrip(img)                          # crop_hands.py 의 두 번째 JPEG 저장과 동일
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)             # 학습 때와 같은 RGB
         img = np.expand_dims(img, 0).astype(self.inp['dtype'])  # 0~255 그대로 (정규화는 모델 안에서)
         self.it.set_tensor(self.inp['index'], img)
@@ -165,9 +175,11 @@ def main():
     ap.add_argument('--mode', choices=['2p', 'ai'], help='지정하면 메뉴 없이 바로 시작')
     ap.add_argument('--camera', type=int, default=0)
     ap.add_argument('--no-mirror', action='store_true', help='좌우 반전(거울 모드) 끄기')
+    ap.add_argument('--no-jpeg', action='store_true',
+                    help='모델 입력의 JPEG 압축 흉내 끄기 (학습 사진과 달라짐, 비교용)')
     args = ap.parse_args()
 
-    model = RpsModel(args.model)
+    model = RpsModel(args.model, jpeg=not args.no_jpeg)
     hd = HandDetector(maxHands=2)
     cap = cv2.VideoCapture(args.camera)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -200,6 +212,8 @@ def main():
         now_pick = {}
         if state != 'menu':
             hands, _ = hd.findHands(frame, draw=False)
+            # 모델에 넣을 화면: capture.py 의 첫 번째 JPEG 저장과 같은 과정 (손이 있을 때만 계산)
+            model_frame = jpeg_roundtrip(frame) if hands and not args.no_jpeg else frame
             for side, hand in assign_hands(hands, fw, mode).items():
                 box = crop_box(hand['bbox'], fw, fh)
                 if box is None:          # 화면 가장자리: 학습 때처럼 판정하지 않음
@@ -207,7 +221,7 @@ def main():
                     cv2.rectangle(view, (x, y), (x + w, y + h), (128, 128, 128), 2)
                     continue
                 x1, y1, x2, y2 = box
-                cls, p = model.predict(frame[y1:y2, x1:x2])
+                cls, p = model.predict(model_frame[y1:y2, x1:x2])
                 now_pick[side] = cls
                 cv2.rectangle(view, (x1, y1), (x2, y2), COLORS[cls], 3)
                 tag = f'{label[side]}  {NAME[cls]} {p:.0%}'
