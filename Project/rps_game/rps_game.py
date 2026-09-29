@@ -1,14 +1,15 @@
-"""2인 가위바위보 게임 (cvzone 손 검출 + MobileNetV3-Small TFLite 분류)
+"""가위바위보 게임: 2인 대전 / AI 대전 (cvzone 손 검출 + MobileNetV3-Small TFLite 분류)
 
-  python rps_game.py                          # rps_model.tflite 사용
+  python rps_game.py                 # 2인 대전 (화면 왼쪽 = P1, 오른쪽 = P2)
+  python rps_game.py --mode ai       # AI 대전 (화면의 가장 큰 손 = 나, 상대 = 컴퓨터)
   python rps_game.py --model rps_model_v1.tflite
 
-화면 왼쪽 = P1, 오른쪽 = P2
-키: SPACE 게임 시작 (3-2-1 후 판정), r 점수 초기화, q/ESC 종료
+키: SPACE 게임 시작 (3-2-1 후 판정), m 모드 전환(2P <-> AI), r 점수 초기화, q/ESC 종료
 
 손 자르기는 crop_hands.py 와 같은 함수를 쓴다 (학습 사진과 동일한 전처리).
 """
 import argparse
+import random
 import time
 from collections import Counter
 
@@ -19,7 +20,7 @@ from cvzone.HandTrackingModule import HandDetector
 
 from crop_hands import CLASSES, crop_box, make_square_img
 
-KOR = {'scissors': 'SCISSORS', 'rock': 'ROCK', 'paper': 'PAPER'}
+NAME = {'scissors': 'SCISSORS', 'rock': 'ROCK', 'paper': 'PAPER'}
 COLORS = {'scissors': (255, 0, 0), 'rock': (0, 255, 0), 'paper': (0, 0, 255)}
 BEATS = {'rock': 'scissors', 'scissors': 'paper', 'paper': 'rock'}   # 키가 값을 이김
 
@@ -60,9 +61,25 @@ def text(img, s, org, scale=1.0, color=(255, 255, 255), thick=2):
     cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thick, cv2.LINE_AA)
 
 
+def assign_hands(hands, fw, mode):
+    """cvzone 손 목록 -> {'P1': hand, 'P2': hand}
+    2p: 화면 절반 기준 (같은 쪽에 여러 개면 큰 손) / ai: 가장 큰 손 하나만 P1"""
+    best = {}
+    for hand in hands:
+        if mode == 'ai':
+            side = 'P1'
+        else:
+            side = 'P1' if hand['center'][0] < fw // 2 else 'P2'
+        area = hand['bbox'][2] * hand['bbox'][3]
+        if side not in best or area > best[side][0]:
+            best[side] = (area, hand)
+    return {side: hand for side, (_, hand) in best.items()}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', default='rps_model.tflite')
+    ap.add_argument('--mode', choices=['2p', 'ai'], default='2p', help='2p: 2인 대전, ai: 컴퓨터와 대전')
     ap.add_argument('--camera', type=int, default=0)
     ap.add_argument('--no-mirror', action='store_true', help='좌우 반전(거울 모드) 끄기')
     args = ap.parse_args()
@@ -75,8 +92,9 @@ def main():
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
         raise SystemExit(f'카메라 {args.camera}번을 열 수 없습니다 (다른 프로그램이 사용 중인지 확인)')
-    cv2.namedWindow('RPS 2P', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('RPS', cv2.WINDOW_NORMAL)
 
+    mode = args.mode
     state, t_state = 'idle', 0.0
     votes = {'P1': Counter(), 'P2': Counter()}
     picks = {'P1': None, 'P2': None}
@@ -93,18 +111,13 @@ def main():
         fh, fw = frame.shape[:2]
         view = frame.copy()              # 모델 입력은 frame, 그림은 view 에
         now = time.time()
+        p2_name = 'CPU' if mode == 'ai' else 'P2'
+        label = {'P1': 'YOU' if mode == 'ai' else 'P1', 'P2': p2_name}
 
-        # ---- 손 찾기 -> 화면 절반 기준으로 P1/P2 배정 (같은 쪽에 여러 개면 큰 손) ----
+        # ---- 손 찾기 -> P1/P2 배정 -> 손마다 판정 ----
         hands, _ = hd.findHands(frame, draw=False)
-        best = {}
-        for hand in hands:
-            side = 'P1' if hand['center'][0] < fw // 2 else 'P2'
-            area = hand['bbox'][2] * hand['bbox'][3]
-            if side not in best or area > best[side][0]:
-                best[side] = (area, hand)
-
         now_pick = {}
-        for side, (_, hand) in best.items():
+        for side, hand in assign_hands(hands, fw, mode).items():
             box = crop_box(hand['bbox'], fw, fh)
             if box is None:              # 화면 가장자리: 학습 때처럼 판정하지 않음
                 x, y, w, h = hand['bbox']
@@ -114,7 +127,7 @@ def main():
             cls, p = model.predict(frame[y1:y2, x1:x2])
             now_pick[side] = cls
             cv2.rectangle(view, (x1, y1), (x2, y2), COLORS[cls], 2)
-            text(view, f'{side} {KOR[cls]} {p:.0%}', (x1, max(20, y1 - 8)), 0.6, COLORS[cls], 2)
+            text(view, f'{label[side]} {NAME[cls]} {p:.0%}', (x1, max(20, y1 - 8)), 0.6, COLORS[cls], 2)
 
         # ---- 게임 진행: idle -> countdown -> capture -> result -> idle ----
         elapsed = now - t_state
@@ -131,6 +144,8 @@ def main():
             text(view, 'SHOW!', (fw // 2 - 110, fh // 2 + 20), 2.2, (0, 0, 255), 5)
             if now - t_state >= CAPTURE_S:
                 picks = {s: (votes[s].most_common(1)[0][0] if votes[s] else None) for s in ('P1', 'P2')}
+                if mode == 'ai':
+                    picks['P2'] = random.choice(CLASSES)   # 컴퓨터는 무작위로 낸다
                 if picks['P1'] and picks['P2']:
                     winner = judge(picks['P1'], picks['P2'])
                     score[winner] += 1
@@ -138,32 +153,40 @@ def main():
                     winner = 'NO HAND'
                 state, t_state = 'result', now
         if state == 'result':
-            text(view, f"P1: {KOR.get(picks['P1'], '?')}", (15, fh - 50), 0.9)
-            text(view, f"P2: {KOR.get(picks['P2'], '?')}", (fw // 2 + 15, fh - 50), 0.9)
-            msg = {'P1': 'P1 WIN!', 'P2': 'P2 WIN!', 'DRAW': 'DRAW'}.get(winner, 'NO HAND')
+            text(view, f"{label['P1']}: {NAME.get(picks['P1'], '?')}", (15, fh - 50), 0.9)
+            text(view, f"{label['P2']}: {NAME.get(picks['P2'], '?')}", (fw // 2 + 15, fh - 50), 0.9)
+            if winner in ('P1', 'P2'):
+                msg = f'{label[winner]} WIN!'
+            else:
+                msg = winner                 # 'DRAW' 또는 'NO HAND'
             color = (0, 255, 255) if winner == 'DRAW' else (0, 255, 0) if winner in ('P1', 'P2') else (0, 0, 255)
             (tw, _), _ = cv2.getTextSize(msg, cv2.FONT_HERSHEY_SIMPLEX, 2.2, 5)
             text(view, msg, ((fw - tw) // 2, fh // 2 + 20), 2.2, color, 5)
             if now - t_state >= RESULT_S:
                 state = 'idle'
         if state == 'idle':
-            text(view, 'SPACE: start   r: reset   q: quit', (15, fh - 15), 0.6, (200, 200, 200), 1)
+            text(view, 'SPACE: start  m: mode  r: reset  q: quit', (15, fh - 15), 0.6, (200, 200, 200), 1)
 
-        # ---- 공통 표시: 가운데 선, 점수, FPS ----
-        cv2.line(view, (fw // 2, 0), (fw // 2, fh), (200, 200, 200), 1)
-        text(view, f"P1  {score['P1']}", (15, 35), 1.0, (255, 255, 0))
-        text(view, f"{score['P2']}  P2", (fw - 120, 35), 1.0, (255, 255, 0))
-        text(view, f"draw {score['DRAW']}", (fw // 2 - 50, 35), 0.6, (200, 200, 200), 1)
+        # ---- 공통 표시: 모드, 가운데 선(2인), 점수, FPS ----
+        if mode == '2p':
+            cv2.line(view, (fw // 2, 0), (fw // 2, fh), (200, 200, 200), 1)
+        text(view, f"{label['P1']}  {score['P1']}", (15, 35), 1.0, (255, 255, 0))
+        text(view, f"{score['P2']}  {label['P2']}", (fw - 140, 35), 1.0, (255, 255, 0))
+        text(view, f"{'VS AI' if mode == 'ai' else '2 PLAYERS'}  draw {score['DRAW']}",
+             (fw // 2 - 90, 35), 0.6, (200, 200, 200), 1)
         fps = 1 / max(now - t_prev, 1e-6)
         t_prev = now
         text(view, f'FPS {fps:.0f}', (fw // 2 - 40, 60), 0.5, (200, 200, 200), 1)
 
-        cv2.imshow('RPS 2P', view)
+        cv2.imshow('RPS', view)
         key = cv2.waitKey(1) & 0xFF
         if key in (ord('q'), 27):
             break
         if key == ord(' ') and state == 'idle':
             state, t_state = 'countdown', now
+        if key == ord('m') and state == 'idle':
+            mode = 'ai' if mode == '2p' else '2p'
+            score.clear()
         if key == ord('r'):
             score.clear()
 
