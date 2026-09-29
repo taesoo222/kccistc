@@ -5,8 +5,9 @@
 
 <data>/scissors|rock|paper/*.jpg  (crop_hands.py 로 만든 224x224 손 사진)
 클래스 순서는 0 scissors, 1 rock, 2 paper 로 고정 (게임 코드와 동일해야 함).
-검증(val)은 촬영 회차(파일 이름 앞부분) 단위로 떼어낸다.
-연속으로 찍은 사진끼리는 거의 같아서, 무작위로 나누면 val 정확도가 부풀려지기 때문.
+--test 를 주면: 학습 폴더 전체를 학습에 쓰고, 검증은 시험 폴더로 한다 (권장).
+--test 가 없으면: 학습 폴더에서 촬영 회차(파일 이름 앞부분) 단위로 검증용을 떼어낸다.
+  연속으로 찍은 사진끼리는 거의 같아서, 무작위로 나누면 val 정확도가 부풀려지기 때문.
 """
 import argparse
 import random
@@ -112,8 +113,14 @@ def main():
     ap.add_argument('--seed', type=int, default=42)
     args = ap.parse_args()
 
-    train_items, val_items = split_by_session(list_files(args.data), args.val_ratio, args.seed)
-    for name, items in (('train', train_items), ('val', val_items)):
+    if args.test:
+        # 학습 사진은 전부 학습에 쓰고, 검증은 따로 찍은 시험 사진으로
+        train_items = [it for g in list_files(args.data).values() for it in g]
+        val_items = [it for g in list_files(args.test).values() for it in g]
+    else:
+        train_items, val_items = split_by_session(list_files(args.data), args.val_ratio, args.seed)
+    val_name = 'test' if args.test else 'val'
+    for name, items in (('train', train_items), (val_name, val_items)):
         cnt = np.bincount([l for _, l in items], minlength=len(CLASSES))
         print(f'{name}: {len(items)}장', dict(zip(CLASSES, cnt.tolist())))
 
@@ -138,10 +145,7 @@ def main():
                       loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         model.fit(train_ds, validation_data=val_ds, epochs=args.finetune_epochs)
 
-    evaluate(model, val_items, 'val')
-    if args.test:
-        test_items = [it for g in list_files(args.test).values() for it in g]
-        evaluate(model, test_items, 'test')
+    evaluate(model, val_items, val_name)
 
     conv = tf.lite.TFLiteConverter.from_keras_model(model)
     if args.quant == 'dynamic':
