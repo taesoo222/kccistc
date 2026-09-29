@@ -1,11 +1,13 @@
 """가위바위보 게임: 2인 대전 / AI 대전 (cvzone 손 검출 + MobileNetV3-Small TFLite 분류)
 
-  python rps_game.py                 # 2인 대전 (화면 왼쪽 = P1, 오른쪽 = P2)
-  python rps_game.py --mode ai       # AI 대전 (화면의 가장 큰 손 = 나, 상대 = 컴퓨터)
-  python rps_game.py --model rps_model_v1.tflite
+  python rps_game.py                 # 시작 메뉴에서 모드 선택
+  python rps_game.py --mode ai       # 메뉴 없이 바로 AI 대전
+  python rps_game.py --mode 2p       # 메뉴 없이 바로 2인 대전
 
-키: SPACE 게임 시작 (3-2-1 후 판정), m 모드 전환(2P <-> AI), r 점수 초기화, q/ESC 종료
+메뉴: 1 = 2인 대전, 2 = AI 대전, q = 종료
+게임: SPACE 시작(3-2-1 후 판정), b 메뉴로, r 점수 초기화, q/ESC 종료
 
+화면 = 카메라(640x480) + 오른쪽 정보 패널.
 손 자르기는 crop_hands.py 와 같은 함수를 쓴다 (학습 사진과 동일한 전처리).
 """
 import argparse
@@ -21,12 +23,18 @@ from cvzone.HandTrackingModule import HandDetector
 from crop_hands import CLASSES, crop_box, make_square_img
 
 NAME = {'scissors': 'SCISSORS', 'rock': 'ROCK', 'paper': 'PAPER'}
-COLORS = {'scissors': (255, 0, 0), 'rock': (0, 255, 0), 'paper': (0, 0, 255)}
+COLORS = {'scissors': (255, 140, 0), 'rock': (80, 200, 80), 'paper': (60, 80, 255)}   # BGR
 BEATS = {'rock': 'scissors', 'scissors': 'paper', 'paper': 'rock'}   # 키가 값을 이김
 
 COUNTDOWN_S = 3.0   # 3-2-1
 CAPTURE_S = 0.6     # 카운트 직후 이 시간 동안 나온 판정 중 가장 많은 것을 채택
 RESULT_S = 3.0      # 결과 표시 시간
+
+PANEL_W = 300                      # 오른쪽 정보 패널 폭
+BG = (35, 30, 30)                  # 패널 배경
+CARD = (60, 52, 50)                # 카드 배경
+WHITE, GRAY, YELLOW = (255, 255, 255), (170, 170, 170), (0, 220, 255)
+FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
 class RpsModel:
@@ -56,30 +64,80 @@ def judge(p1, p2):
     return 'P1' if BEATS[p1] == p2 else 'P2'
 
 
-def text(img, s, org, scale=1.0, color=(255, 255, 255), thick=2):
-    cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), thick + 4, cv2.LINE_AA)
-    cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thick, cv2.LINE_AA)
-
-
 def assign_hands(hands, fw, mode):
     """cvzone 손 목록 -> {'P1': hand, 'P2': hand}
     2p: 화면 절반 기준 (같은 쪽에 여러 개면 큰 손) / ai: 가장 큰 손 하나만 P1"""
     best = {}
     for hand in hands:
-        if mode == 'ai':
-            side = 'P1'
-        else:
-            side = 'P1' if hand['center'][0] < fw // 2 else 'P2'
+        side = 'P1' if mode == 'ai' or hand['center'][0] < fw // 2 else 'P2'
         area = hand['bbox'][2] * hand['bbox'][3]
         if side not in best or area > best[side][0]:
             best[side] = (area, hand)
     return {side: hand for side, (_, hand) in best.items()}
 
 
+# ---------------------------------------------------------------- 그리기 도우미
+def text(img, s, org, scale=1.0, color=WHITE, thick=2, outline=True):
+    if outline:
+        cv2.putText(img, s, org, FONT, scale, (0, 0, 0), thick + 4, cv2.LINE_AA)
+    cv2.putText(img, s, org, FONT, scale, color, thick, cv2.LINE_AA)
+
+
+def text_c(img, s, cx, y, scale=1.0, color=WHITE, thick=2, outline=True):
+    """가운데 정렬 글자"""
+    (tw, _), _ = cv2.getTextSize(s, FONT, scale, thick)
+    text(img, s, (cx - tw // 2, y), scale, color, thick, outline)
+
+
+def shade(img, x1, y1, x2, y2, color=(0, 0, 0), alpha=0.55):
+    """반투명 사각형"""
+    roi = img[y1:y2, x1:x2]
+    img[y1:y2, x1:x2] = cv2.addWeighted(roi, 1 - alpha, np.full_like(roi, color), alpha, 0)
+
+
+def draw_icon(img, cls, cx, cy, s, color):
+    """가위/바위/보 아이콘 (s = 대략적인 크기)"""
+    if cls == 'rock':        # 주먹: 둥근 덩어리 + 손가락 마디
+        cv2.circle(img, (cx, cy), s // 2, color, -1, cv2.LINE_AA)
+        for i in range(3):
+            x = cx - s // 4 + i * s // 4
+            cv2.line(img, (x, cy - s // 2 + 4), (x, cy - s // 6), BG, 3, cv2.LINE_AA)
+    elif cls == 'paper':     # 보: 손바닥 + 손가락 다섯 개
+        cv2.rectangle(img, (cx - s // 3, cy - s // 8), (cx + s // 3, cy + s // 2), color, -1)
+        for i in range(4):
+            x = cx - s // 3 + s // 12 + i * (s * 2 // 3 - s // 6) // 3
+            cv2.line(img, (x, cy - s // 8), (x, cy - s // 2), color, max(4, s // 9), cv2.LINE_AA)
+        cv2.line(img, (cx - s // 3, cy + s // 8), (cx - s // 2 - 4, cy - s // 10), color, max(4, s // 9), cv2.LINE_AA)
+    else:                    # 가위: 손바닥 + V 두 손가락
+        cv2.circle(img, (cx, cy + s // 4), s // 4, color, -1, cv2.LINE_AA)
+        w = max(4, s // 8)
+        cv2.line(img, (cx - s // 10, cy + s // 8), (cx - s // 3, cy - s // 2), color, w, cv2.LINE_AA)
+        cv2.line(img, (cx + s // 10, cy + s // 8), (cx + s // 3, cy - s // 2), color, w, cv2.LINE_AA)
+
+
+def card(panel, x, y, w, h, title, cls, sub='', hidden=False, t=0.0):
+    """플레이어 카드: 제목 + 아이콘 + 이름. hidden=True 면 아이콘이 계속 바뀜(AI 고민 중)"""
+    cv2.rectangle(panel, (x, y), (x + w, y + h), CARD, -1)
+    text_c(panel, title, x + w // 2, y + 28, 0.7, YELLOW, 2, outline=False)
+    cx, cy = x + w // 2, y + h // 2 + 8
+    if hidden:
+        cls = CLASSES[int(t * 8) % 3]                       # 빠르게 돌아가는 아이콘
+        draw_icon(panel, cls, cx, cy, 70, GRAY)
+        text_c(panel, '???', cx, y + h - 14, 0.7, GRAY, 2, outline=False)
+    elif cls:
+        draw_icon(panel, cls, cx, cy, 70, COLORS[cls])
+        text_c(panel, NAME[cls], cx, y + h - 14, 0.7, WHITE, 2, outline=False)
+    else:
+        text_c(panel, '-', cx, cy + 10, 1.2, GRAY, 2, outline=False)
+        if sub:
+            text_c(panel, sub, cx, y + h - 14, 0.5, GRAY, 1, outline=False)
+
+
+# ---------------------------------------------------------------- 메인
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', default='rps_model.tflite')
-    ap.add_argument('--mode', choices=['2p', 'ai'], default='2p', help='2p: 2인 대전, ai: 컴퓨터와 대전')
+    ap.add_argument('--mode', choices=['2p', 'ai'], help='지정하면 메뉴 없이 바로 시작')
     ap.add_argument('--camera', type=int, default=0)
     ap.add_argument('--no-mirror', action='store_true', help='좌우 반전(거울 모드) 끄기')
     args = ap.parse_args()
@@ -92,15 +150,15 @@ def main():
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
         raise SystemExit(f'카메라 {args.camera}번을 열 수 없습니다 (다른 프로그램이 사용 중인지 확인)')
-    cv2.namedWindow('RPS', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Rock Paper Scissors', cv2.WINDOW_NORMAL)
 
-    mode = args.mode
-    state, t_state = 'idle', 0.0
+    mode = args.mode                 # None = 메뉴
+    state, t_state = ('menu' if mode is None else 'idle'), 0.0
     votes = {'P1': Counter(), 'P2': Counter()}
     picks = {'P1': None, 'P2': None}
-    winner = None
+    winner, rounds = None, 0
     score = Counter()
-    t_prev = time.time()
+    t_prev, fps = time.time(), 0.0
 
     while True:
         ret, frame = cap.read()
@@ -111,84 +169,140 @@ def main():
         fh, fw = frame.shape[:2]
         view = frame.copy()              # 모델 입력은 frame, 그림은 view 에
         now = time.time()
-        p2_name = 'CPU' if mode == 'ai' else 'P2'
-        label = {'P1': 'YOU' if mode == 'ai' else 'P1', 'P2': p2_name}
+        label = {'P1': 'YOU' if mode == 'ai' else 'P1', 'P2': 'AI' if mode == 'ai' else 'P2'}
 
-        # ---- 손 찾기 -> P1/P2 배정 -> 손마다 판정 ----
-        hands, _ = hd.findHands(frame, draw=False)
+        # ---- 손 찾기 -> P1/P2 배정 -> 손마다 판정 (메뉴에서는 생략) ----
         now_pick = {}
-        for side, hand in assign_hands(hands, fw, mode).items():
-            box = crop_box(hand['bbox'], fw, fh)
-            if box is None:              # 화면 가장자리: 학습 때처럼 판정하지 않음
-                x, y, w, h = hand['bbox']
-                cv2.rectangle(view, (x, y), (x + w, y + h), (128, 128, 128), 2)
-                continue
-            x1, y1, x2, y2 = box
-            cls, p = model.predict(frame[y1:y2, x1:x2])
-            now_pick[side] = cls
-            cv2.rectangle(view, (x1, y1), (x2, y2), COLORS[cls], 2)
-            text(view, f'{label[side]} {NAME[cls]} {p:.0%}', (x1, max(20, y1 - 8)), 0.6, COLORS[cls], 2)
+        if state != 'menu':
+            hands, _ = hd.findHands(frame, draw=False)
+            for side, hand in assign_hands(hands, fw, mode).items():
+                box = crop_box(hand['bbox'], fw, fh)
+                if box is None:          # 화면 가장자리: 학습 때처럼 판정하지 않음
+                    x, y, w, h = hand['bbox']
+                    cv2.rectangle(view, (x, y), (x + w, y + h), (128, 128, 128), 2)
+                    continue
+                x1, y1, x2, y2 = box
+                cls, p = model.predict(frame[y1:y2, x1:x2])
+                now_pick[side] = cls
+                cv2.rectangle(view, (x1, y1), (x2, y2), COLORS[cls], 3)
+                tag = f'{label[side]}  {NAME[cls]} {p:.0%}'
+                (tw, th), _ = cv2.getTextSize(tag, FONT, 0.55, 2)
+                cv2.rectangle(view, (x1, y1 - th - 12), (x1 + tw + 10, y1), COLORS[cls], -1)
+                text(view, tag, (x1 + 5, y1 - 6), 0.55, WHITE, 2, outline=False)
 
-        # ---- 게임 진행: idle -> countdown -> capture -> result -> idle ----
+        # ---- 게임 진행: menu / idle -> countdown -> capture -> result -> idle ----
         elapsed = now - t_state
         if state == 'countdown':
             if elapsed >= COUNTDOWN_S:
                 state, t_state = 'capture', now
                 votes = {'P1': Counter(), 'P2': Counter()}
             else:
-                text(view, str(int(COUNTDOWN_S - elapsed) + 1), (fw // 2 - 30, fh // 2 + 30), 4, (0, 255, 255), 8)
+                n = int(COUNTDOWN_S - elapsed) + 1
+                r = int(70 + 30 * ((COUNTDOWN_S - elapsed) % 1))      # 숫자마다 원이 줄어듦
+                cv2.circle(view, (fw // 2, fh // 2), r, (0, 0, 0), -1, cv2.LINE_AA)
+                cv2.circle(view, (fw // 2, fh // 2), r, YELLOW, 4, cv2.LINE_AA)
+                text_c(view, str(n), fw // 2, fh // 2 + 35, 3.0, YELLOW, 7, outline=False)
         if state == 'capture':
             for side in ('P1', 'P2'):
                 if side in now_pick:
                     votes[side][now_pick[side]] += 1
-            text(view, 'SHOW!', (fw // 2 - 110, fh // 2 + 20), 2.2, (0, 0, 255), 5)
+            text_c(view, 'SHOW!', fw // 2, fh // 2 + 25, 2.4, (0, 0, 255), 6)
             if now - t_state >= CAPTURE_S:
                 picks = {s: (votes[s].most_common(1)[0][0] if votes[s] else None) for s in ('P1', 'P2')}
                 if mode == 'ai':
-                    picks['P2'] = random.choice(CLASSES)   # 컴퓨터는 무작위로 낸다
+                    picks['P2'] = random.choice(CLASSES)    # AI 는 무작위로 낸다
                 if picks['P1'] and picks['P2']:
                     winner = judge(picks['P1'], picks['P2'])
                     score[winner] += 1
+                    rounds += 1
                 else:
                     winner = 'NO HAND'
                 state, t_state = 'result', now
         if state == 'result':
-            text(view, f"{label['P1']}: {NAME.get(picks['P1'], '?')}", (15, fh - 50), 0.9)
-            text(view, f"{label['P2']}: {NAME.get(picks['P2'], '?')}", (fw // 2 + 15, fh - 50), 0.9)
-            if winner in ('P1', 'P2'):
-                msg = f'{label[winner]} WIN!'
+            if mode == 'ai' and winner == 'P2':
+                msg, col = 'YOU LOSE', (0, 0, 190)
+            elif winner in ('P1', 'P2'):
+                msg, col = f'{label[winner]} WIN!', (0, 170, 0)
+            elif winner == 'DRAW':
+                msg, col = 'DRAW', (0, 150, 200)
             else:
-                msg = winner                 # 'DRAW' 또는 'NO HAND'
-            color = (0, 255, 255) if winner == 'DRAW' else (0, 255, 0) if winner in ('P1', 'P2') else (0, 0, 255)
-            (tw, _), _ = cv2.getTextSize(msg, cv2.FONT_HERSHEY_SIMPLEX, 2.2, 5)
-            text(view, msg, ((fw - tw) // 2, fh // 2 + 20), 2.2, color, 5)
+                msg, col = 'NO HAND - TRY AGAIN', (0, 0, 180)
+            shade(view, 0, fh // 2 - 55, fw, fh // 2 + 45, col, 0.75)
+            text_c(view, msg, fw // 2, fh // 2 + 15, 1.8 if len(msg) < 12 else 1.1, WHITE, 4)
             if now - t_state >= RESULT_S:
                 state = 'idle'
-        if state == 'idle':
-            text(view, 'SPACE: start  m: mode  r: reset  q: quit', (15, fh - 15), 0.6, (200, 200, 200), 1)
-
-        # ---- 공통 표시: 모드, 가운데 선(2인), 점수, FPS ----
-        if mode == '2p':
+        if mode == '2p' and state != 'menu':
             cv2.line(view, (fw // 2, 0), (fw // 2, fh), (200, 200, 200), 1)
-        text(view, f"{label['P1']}  {score['P1']}", (15, 35), 1.0, (255, 255, 0))
-        text(view, f"{score['P2']}  {label['P2']}", (fw - 140, 35), 1.0, (255, 255, 0))
-        text(view, f"{'VS AI' if mode == 'ai' else '2 PLAYERS'}  draw {score['DRAW']}",
-             (fw // 2 - 90, 35), 0.6, (200, 200, 200), 1)
-        fps = 1 / max(now - t_prev, 1e-6)
-        t_prev = now
-        text(view, f'FPS {fps:.0f}', (fw // 2 - 40, 60), 0.5, (200, 200, 200), 1)
+            text(view, 'P1', (10, 30), 0.8, YELLOW)
+            text(view, 'P2', (fw - 45, 30), 0.8, YELLOW)
 
-        cv2.imshow('RPS', view)
+        if state == 'menu':
+            shade(view, 0, 0, fw, fh, (0, 0, 0), 0.6)
+            text_c(view, 'ROCK  PAPER  SCISSORS', fw // 2, 110, 1.3, YELLOW, 3)
+            for i, cls in enumerate(CLASSES):
+                draw_icon(view, cls, fw // 2 - 120 + i * 120, 185, 60, COLORS[cls])
+            for i, (k, s) in enumerate([('1', '2 PLAYERS'), ('2', 'VS AI')]):
+                y = 270 + i * 70
+                cv2.rectangle(view, (fw // 2 - 150, y), (fw // 2 + 150, y + 52), CARD, -1)
+                cv2.rectangle(view, (fw // 2 - 150, y), (fw // 2 + 150, y + 52), YELLOW, 2)
+                text(view, f'[{k}]  {s}', (fw // 2 - 120, y + 36), 0.9, WHITE, 2, outline=False)
+            text_c(view, 'q : quit', fw // 2, fh - 25, 0.6, GRAY, 1)
+
+        # ---- 오른쪽 패널 ----
+        panel = np.full((fh, PANEL_W, 3), BG, np.uint8)
+        px = 15
+        if state == 'menu':
+            text_c(panel, 'SELECT MODE', PANEL_W // 2, 50, 0.8, YELLOW, 2, outline=False)
+            text_c(panel, 'press 1 or 2', PANEL_W // 2, 85, 0.6, GRAY, 1, outline=False)
+        else:
+            text_c(panel, 'VS AI' if mode == 'ai' else '2 PLAYERS', PANEL_W // 2, 35, 0.8, YELLOW, 2, outline=False)
+            # 점수판
+            cv2.rectangle(panel, (px, 50), (PANEL_W - px, 110), CARD, -1)
+            text_c(panel, f"{score['P1']}  :  {score['P2']}", PANEL_W // 2, 92, 1.3, WHITE, 3, outline=False)
+            text(panel, label['P1'], (px + 8, 72), 0.5, GRAY, 1, outline=False)
+            text(panel, label['P2'], (PANEL_W - px - 32, 72), 0.5, GRAY, 1, outline=False)
+            text_c(panel, f"round {rounds}   draw {score['DRAW']}", PANEL_W // 2, 130, 0.5, GRAY, 1, outline=False)
+            # 두 플레이어 카드: 대기 중엔 실시간 인식, 결과 때는 확정된 선택
+            cw, ch, cy = (PANEL_W - 3 * px) // 2, 170, 150
+            for i, side in enumerate(('P1', 'P2')):
+                x = px + i * (cw + px)
+                if state == 'result':
+                    card(panel, x, cy, cw, ch, label[side], picks[side], 'no hand')
+                elif mode == 'ai' and side == 'P2':
+                    card(panel, x, cy, cw, ch, 'AI', None, 'waiting',
+                         hidden=state in ('countdown', 'capture'), t=now)
+                else:
+                    card(panel, x, cy, cw, ch, label[side], now_pick.get(side), 'no hand')
+            if state == 'result' and winner in ('P1', 'P2'):   # 이긴 쪽 카드 테두리
+                x = px + (0 if winner == 'P1' else cw + px)
+                cv2.rectangle(panel, (x, cy), (x + cw, cy + ch), (0, 200, 0), 4)
+            # 안내
+            status = {'idle': 'press SPACE to play', 'countdown': 'get ready...',
+                      'capture': 'SHOW YOUR HAND!', 'result': ''}[state]
+            text_c(panel, status, PANEL_W // 2, 355, 0.6, WHITE, 1, outline=False)
+            for i, s in enumerate(['SPACE  start', 'b  menu', 'r  reset score', 'q  quit']):
+                text(panel, s, (px + 10, 395 + i * 22), 0.5, GRAY, 1, outline=False)
+        fps = 0.9 * fps + 0.1 / max(now - t_prev, 1e-6)
+        t_prev = now
+        text(panel, f'FPS {fps:.0f}', (PANEL_W - 75, fh - 8), 0.45, GRAY, 1, outline=False)
+
+        cv2.imshow('Rock Paper Scissors', np.hstack([view, panel]))
         key = cv2.waitKey(1) & 0xFF
         if key in (ord('q'), 27):
             break
-        if key == ord(' ') and state == 'idle':
-            state, t_state = 'countdown', now
-        if key == ord('m') and state == 'idle':
-            mode = 'ai' if mode == '2p' else '2p'
-            score.clear()
-        if key == ord('r'):
-            score.clear()
+        if state == 'menu':
+            if key in (ord('1'), ord('2')):
+                mode = '2p' if key == ord('1') else 'ai'
+                state, rounds = 'idle', 0
+                score.clear()
+        else:
+            if key == ord(' ') and state == 'idle':
+                state, t_state = 'countdown', now
+            if key == ord('b') and state in ('idle', 'result'):
+                state = 'menu'
+            if key == ord('r'):
+                score.clear()
+                rounds = 0
 
     cap.release()
     cv2.destroyAllWindows()
