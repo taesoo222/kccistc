@@ -14,6 +14,7 @@ import argparse
 import random
 import time
 from collections import Counter
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -35,6 +36,10 @@ BG = (35, 30, 30)                  # 패널 배경
 CARD = (60, 52, 50)                # 카드 배경
 WHITE, GRAY, YELLOW = (255, 255, 255), (170, 170, 170), (0, 220, 255)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
+
+# icons/<클래스>.png (Noto Emoji, icons/README.md 참고). 없으면 도형으로 대신 그린다.
+ICONS = {c: cv2.imread(str(Path(__file__).with_name('icons') / f'{c}.png'), cv2.IMREAD_UNCHANGED)
+         for c in CLASSES}
 
 
 class RpsModel:
@@ -95,8 +100,28 @@ def shade(img, x1, y1, x2, y2, color=(0, 0, 0), alpha=0.55):
     img[y1:y2, x1:x2] = cv2.addWeighted(roi, 1 - alpha, np.full_like(roi, color), alpha, 0)
 
 
-def draw_icon(img, cls, cx, cy, s, color):
-    """가위/바위/보 아이콘 (s = 대략적인 크기)"""
+def draw_icon(img, cls, cx, cy, s, color, dim=False):
+    """가위/바위/보 아이콘을 (cx, cy) 중심에 s x s 크기로. dim=True 면 흐린 회색 (AI 고민 중)"""
+    icon = ICONS.get(cls)
+    if icon is not None and icon.ndim == 3 and icon.shape[2] == 4:
+        icon = cv2.resize(icon, (s, s), interpolation=cv2.INTER_AREA)
+        rgb, alpha = icon[:, :, :3].astype(np.float32), icon[:, :, 3:].astype(np.float32) / 255
+        if dim:
+            rgb = np.repeat(cv2.cvtColor(icon[:, :, :3], cv2.COLOR_BGR2GRAY)[:, :, None], 3, 2).astype(np.float32)
+            alpha *= 0.5
+        x1, y1 = cx - s // 2, cy - s // 2
+        # 화면 밖으로 나가는 부분은 잘라낸다
+        ix1, iy1 = max(0, -x1), max(0, -y1)
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(img.shape[1], cx - s // 2 + s), min(img.shape[0], cy - s // 2 + s)
+        if x2 <= x1 or y2 <= y1:
+            return
+        rgb, alpha = rgb[iy1:iy1 + y2 - y1, ix1:ix1 + x2 - x1], alpha[iy1:iy1 + y2 - y1, ix1:ix1 + x2 - x1]
+        roi = img[y1:y2, x1:x2].astype(np.float32)
+        img[y1:y2, x1:x2] = (rgb * alpha + roi * (1 - alpha)).astype(np.uint8)
+        return
+    if dim:
+        color = GRAY
     if cls == 'rock':        # 주먹: 둥근 덩어리 + 손가락 마디
         cv2.circle(img, (cx, cy), s // 2, color, -1, cv2.LINE_AA)
         for i in range(3):
@@ -122,10 +147,10 @@ def card(panel, x, y, w, h, title, cls, sub='', hidden=False, t=0.0):
     cx, cy = x + w // 2, y + h // 2 + 8
     if hidden:
         cls = CLASSES[int(t * 8) % 3]                       # 빠르게 돌아가는 아이콘
-        draw_icon(panel, cls, cx, cy, 70, GRAY)
+        draw_icon(panel, cls, cx, cy - 4, 84, GRAY, dim=True)
         text_c(panel, '???', cx, y + h - 14, 0.7, GRAY, 2, outline=False)
     elif cls:
-        draw_icon(panel, cls, cx, cy, 70, COLORS[cls])
+        draw_icon(panel, cls, cx, cy - 4, 84, COLORS[cls])
         text_c(panel, NAME[cls], cx, y + h - 14, 0.7, WHITE, 2, outline=False)
     else:
         text_c(panel, '-', cx, cy + 10, 1.2, GRAY, 2, outline=False)
@@ -240,7 +265,7 @@ def main():
             shade(view, 0, 0, fw, fh, (0, 0, 0), 0.6)
             text_c(view, 'ROCK  PAPER  SCISSORS', fw // 2, 110, 1.3, YELLOW, 3)
             for i, cls in enumerate(CLASSES):
-                draw_icon(view, cls, fw // 2 - 120 + i * 120, 185, 60, COLORS[cls])
+                draw_icon(view, cls, fw // 2 - 120 + i * 120, 185, 80, COLORS[cls])
             for i, (k, s) in enumerate([('1', '2 PLAYERS'), ('2', 'VS AI')]):
                 y = 270 + i * 70
                 cv2.rectangle(view, (fw // 2 - 150, y), (fw // 2 + 150, y + 52), CARD, -1)
