@@ -72,8 +72,7 @@ def main():
             counts[rec] += 1
             last = now
 
-        # 화면 표시: 가운데 선(2인 구역), 상태, 장수
-        cv2.line(view, (fw // 2, 0), (fw // 2, fh), (0, 255, 255), 1)
+        # 화면 표시: 상태, 장수
         status = f'REC {CLASSES[rec]}' if rec is not None else 'PAUSE  (1:scissors 2:rock 3:paper)'
         cv2.putText(view, status, (10, 30), cv2.FONT_HERSHEY_PLAIN, 1.8,
                     COLORS[rec] if rec is not None else (0, 255, 255), 2)
