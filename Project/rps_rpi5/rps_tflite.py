@@ -17,38 +17,14 @@ from cvzone.HandTrackingModule import HandDetector
 
 from gesture import judge
 
-ansToText = {0: 'scissors', 1: 'rock', 2: 'paper'}  # 모델 학습 시 클래스 순서
+from common import CLASSES, hand_crop_box, make_square_img
+
+ansToText = dict(enumerate(CLASSES))  # {0:'scissors', 1:'rock', 2:'paper'}
 colorList = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-offset = 30
 
 COUNTDOWN_S = 3.0   # 3-2-1 카운트
 CAPTURE_S = 0.6     # 카운트 직후 손 모양을 모으는 시간 (다수결)
 RESULT_S = 2.5      # 결과 표시 시간
-
-
-def make_square_img(img, size):
-    """손 이미지를 비율 유지한 채 size x size 흰 배경 가운데에 붙인다."""
-    ho, wo = img.shape[:2]
-    wbg = np.ones((size, size, 3), np.uint8) * 255
-    if ho > wo:  # portrait
-        wk = max(1, int(wo * size / ho))
-        img = cv2.resize(img, (wk, size))
-        d = (size - wk) // 2
-        wbg[:, d:d + wk] = img
-    else:        # landscape
-        hk = max(1, int(ho * size / wo))
-        img = cv2.resize(img, (size, hk))
-        d = (size - hk) // 2
-        wbg[d:d + hk, :] = img
-    return wbg
-
-
-def hand_crop_box(bbox, frame_w, frame_h):
-    """BB를 좌/상/우로 offset만큼 늘린 crop 영역. 화면을 벗어나면 None."""
-    x, y, w, h = bbox
-    if x < offset or y < offset or x + w + offset > frame_w or y + h > frame_h:
-        return None
-    return x - offset, y - offset, x + w + offset, y + h
 
 
 class RpsModel:
@@ -63,8 +39,12 @@ class RpsModel:
     def predict(self, img_bgr):
         img = make_square_img(img_bgr, self.size)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = np.expand_dims(img, 0).astype(self.inp['dtype'])
-        self.interpreter.set_tensor(self.inp['index'], img)
+        img = np.expand_dims(img, 0).astype(np.float32)
+        scale, zero = self.inp['quantization']
+        if scale:  # int8/uint8 양자화 모델: 0~255 값을 모델의 정수 스케일로 변환
+            info = np.iinfo(self.inp['dtype'])
+            img = np.clip(np.round(img / scale + zero), info.min, info.max)
+        self.interpreter.set_tensor(self.inp['index'], img.astype(self.inp['dtype']))
         self.interpreter.invoke()
         return int(np.argmax(self.interpreter.get_tensor(self.out['index'])[0]))
 

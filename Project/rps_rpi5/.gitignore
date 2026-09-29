@@ -2,3 +2,6 @@ __pycache__/
 hand_landmarker.task
 .venv/
 *.tflite
+data_new/
+dataset*/
+*.keras
