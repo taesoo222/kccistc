@@ -247,6 +247,7 @@ def main():
                     help='평소에는 N 프레임마다 학습 모델 실행 (SHOW! 판정 구간은 항상 매 프레임)')
     ap.add_argument('--threads', type=int, default=4, help='학습 모델 계산 스레드 수')
     ap.add_argument('--profile', action='store_true', help='단계별 시간(ms)을 터미널에 출력')
+    ap.add_argument('--debug', action='store_true', help='박스 아래에 학습 모델/손가락 판정을 각각 표시')
     args = ap.parse_args()
 
     model = RpsModel(args.model, jpeg=not args.no_jpeg, threads=args.threads)
@@ -326,9 +327,9 @@ def main():
                 (tw, th), _ = cv2.getTextSize(tag, FONT, 0.55, 2)
                 cv2.rectangle(view, (x1, y1 - th - 12), (x1 + tw + 10, y1), COLORS[cls], -1)
                 text(view, tag, (x1 + 5, y1 - 6), 0.55, WHITE, 2, outline=False)
-                # 박스 아래: 두 판정을 각각 표시 (발표·디버깅용)
-                detail = f"model {NAME[cnn_cls]} {p:.0%} / finger {NAME.get(rule_cls, '?')}"
-                text(view, detail, (x1, min(fh - 8, y2 + 20)), 0.45, WHITE, 1)
+                if args.debug:           # 박스 아래: 두 판정을 각각 표시 (발표·디버깅용)
+                    detail = f"model {NAME[cnn_cls]} {p:.0%} / finger {NAME.get(rule_cls, '?')}"
+                    text(view, detail, (x1, min(fh - 8, y2 + 20)), 0.45, WHITE, 1)
         t_judge = time.perf_counter()
 
         # ---- 게임 진행: menu / idle -> countdown -> capture -> result -> idle ----
