@@ -6,6 +6,7 @@
 
 메뉴: 1 = 2인 대전, 2 = AI 대전, q = 종료
 게임: SPACE 시작(3-2-1 후 판정), b 메뉴로, r 점수 초기화, q/ESC 종료
+      먼저 --win-target(기본 2)승을 한 쪽이 매치 승리 (3판 2선승). 최근 5판 기록은 오른쪽 패널에 표시.
 
 화면 = 카메라(640x480) + 오른쪽 정보 패널.
 손 자르기는 crop_hands.py 와 같은 함수를 쓴다 (학습 사진과 동일한 전처리).
@@ -248,6 +249,7 @@ def main():
     ap.add_argument('--threads', type=int, default=4, help='학습 모델 계산 스레드 수')
     ap.add_argument('--profile', action='store_true', help='단계별 시간(ms)을 터미널에 출력')
     ap.add_argument('--debug', action='store_true', help='박스 아래에 학습 모델/손가락 판정을 각각 표시')
+    ap.add_argument('--win-target', type=int, default=2, help='먼저 이만큼 이기면 매치 승리 (2 = 3판 2선승)')
     args = ap.parse_args()
 
     model = RpsModel(args.model, jpeg=not args.no_jpeg, threads=args.threads)
@@ -265,6 +267,7 @@ def main():
     picks = {'P1': None, 'P2': None}
     winner, rounds = None, 0
     score = Counter()
+    history = []                     # (P1 선택, P2 선택, 승자) 최근 판 기록
     t_prev, fps = time.time(), 0.0
     model_cache = {}                 # side -> (모델 판정, 확률): 모델을 건너뛰는 프레임에서 재사용
     n_frame = 0
@@ -357,6 +360,7 @@ def main():
                     winner = judge(picks['P1'], picks['P2'])
                     score[winner] += 1
                     rounds += 1
+                    history = (history + [(picks['P1'], picks['P2'], winner)])[-5:]
                 else:
                     winner = 'NO HAND'
                 state, t_state = 'result', now
@@ -372,7 +376,19 @@ def main():
             shade(view, 0, fh // 2 - 55, fw, fh // 2 + 45, col, 0.75)
             text_c(view, msg, fw // 2, fh // 2 + 15, 1.8 if len(msg) < 12 else 1.1, WHITE, 4)
             if now - t_state >= RESULT_S:
-                state = 'idle'
+                done = max(score['P1'], score['P2']) >= args.win_target
+                state, t_state = ('match', now) if done else ('idle', t_state)
+        if state == 'match':                 # 매치 종료 화면
+            champ = 'P1' if score['P1'] > score['P2'] else 'P2'
+            if mode == 'ai':
+                msg, col = ('YOU WIN THE MATCH!', (0, 150, 0)) if champ == 'P1' else ('AI WINS THE MATCH', (0, 0, 170))
+            else:
+                msg, col = f'{champ} WINS THE MATCH!', (0, 150, 0)
+            shade(view, 0, 0, fw, fh, (0, 0, 0), 0.55)
+            shade(view, 0, fh // 2 - 90, fw, fh // 2 + 90, col, 0.8)
+            text_c(view, msg, fw // 2, fh // 2 - 25, 1.2, WHITE, 3)
+            text_c(view, f"{score['P1']}  :  {score['P2']}", fw // 2, fh // 2 + 40, 1.6, YELLOW, 4)
+            text_c(view, 'SPACE: new match    b: menu', fw // 2, fh // 2 + 125, 0.7, WHITE, 2)
         if mode == '2p' and state != 'menu':
             cv2.line(view, (fw // 2, 0), (fw // 2, fh), (200, 200, 200), 1)
             text(view, 'P1', (10, 30), 0.8, YELLOW)
@@ -403,27 +419,38 @@ def main():
             text_c(panel, f"{score['P1']}  :  {score['P2']}", PANEL_W // 2, 92, 1.3, WHITE, 3, outline=False)
             text(panel, label['P1'], (px + 8, 72), 0.5, GRAY, 1, outline=False)
             text(panel, label['P2'], (PANEL_W - px - 32, 72), 0.5, GRAY, 1, outline=False)
-            text_c(panel, f"round {rounds}   draw {score['DRAW']}", PANEL_W // 2, 130, 0.5, GRAY, 1, outline=False)
+            text_c(panel, f"first to {args.win_target}   round {rounds}   draw {score['DRAW']}",
+                   PANEL_W // 2, 130, 0.5, GRAY, 1, outline=False)
             # 두 플레이어 카드: 대기 중엔 실시간 인식, 결과 때는 확정된 선택
             cw, ch, cy = (PANEL_W - 3 * px) // 2, 170, 150
             for i, side in enumerate(('P1', 'P2')):
                 x = px + i * (cw + px)
-                if state == 'result':
+                if state in ('result', 'match'):
                     card(panel, x, cy, cw, ch, label[side], picks[side], 'no hand')
                 elif mode == 'ai' and side == 'P2':
                     card(panel, x, cy, cw, ch, 'AI', None, 'waiting',
                          hidden=state in ('countdown', 'capture'), t=now)
                 else:
                     card(panel, x, cy, cw, ch, label[side], now_pick.get(side), 'no hand')
-            if state == 'result' and winner in ('P1', 'P2'):   # 이긴 쪽 카드 테두리
+            if state in ('result', 'match') and winner in ('P1', 'P2'):   # 이긴 쪽 카드 테두리
                 x = px + (0 if winner == 'P1' else cw + px)
                 cv2.rectangle(panel, (x, cy), (x + cw, cy + ch), (0, 200, 0), 4)
+            # 최근 기록: 왼쪽 아이콘 = P1(YOU), 오른쪽 = P2(AI), 테두리 색 = 승자
+            text(panel, 'RECENT', (px, 342), 0.45, GRAY, 1, outline=False)
+            win_col = {'P1': (0, 200, 0), 'P2': (0, 0, 220) if mode == 'ai' else (255, 140, 0), 'DRAW': GRAY}
+            slot = (PANEL_W - 2 * px) // 5
+            for i, (a, b, w) in enumerate(history):
+                x = px + i * slot
+                cv2.rectangle(panel, (x + 2, 350), (x + slot - 3, 380), CARD, -1)
+                cv2.rectangle(panel, (x + 2, 350), (x + slot - 3, 380), win_col[w], 2)
+                draw_icon(panel, a, x + slot // 2 - 12, 365, 22, COLORS[a])
+                draw_icon(panel, b, x + slot // 2 + 12, 365, 22, COLORS[b])
             # 안내
-            status = {'idle': 'press SPACE to play', 'countdown': 'get ready...',
-                      'capture': 'SHOW YOUR HAND!', 'result': ''}[state]
-            text_c(panel, status, PANEL_W // 2, 355, 0.6, WHITE, 1, outline=False)
-            for i, s in enumerate(['SPACE  start', 'b  menu', 'r  reset score', 'q  quit']):
-                text(panel, s, (px + 10, 395 + i * 22), 0.5, GRAY, 1, outline=False)
+            status = {'idle': 'press SPACE to play', 'countdown': 'get ready...', 'capture': 'SHOW YOUR HAND!',
+                      'result': '', 'match': 'SPACE: new match'}[state]
+            text_c(panel, status, PANEL_W // 2, 410, 0.6, WHITE, 1, outline=False)
+            for i, s in enumerate(['SPACE start    b menu', 'r reset        q quit']):
+                text(panel, s, (px + 10, 440 + i * 20), 0.45, GRAY, 1, outline=False)
         fps = 0.9 * fps + 0.1 / max(now - t_prev, 1e-6)
         t_prev = now
         text(panel, f'FPS {fps:.0f}', (PANEL_W - 75, fh - 8), 0.45, GRAY, 1, outline=False)
@@ -445,16 +472,21 @@ def main():
         if state == 'menu':
             if key in (ord('1'), ord('2')):
                 mode = '2p' if key == ord('1') else 'ai'
-                state, rounds = 'idle', 0
+                state, rounds, history = 'idle', 0, []
                 score.clear()
         else:
             if key == ord(' ') and state == 'idle':
                 state, t_state = 'countdown', now
-            if key == ord('b') and state in ('idle', 'result'):
+            elif key == ord(' ') and state == 'match':     # 새 매치
+                state, rounds, history = 'idle', 0, []
+                score.clear()
+            if key == ord('b') and state in ('idle', 'result', 'match'):
                 state = 'menu'
             if key == ord('r'):
                 score.clear()
-                rounds = 0
+                rounds, history = 0, []
+                if state == 'match':
+                    state = 'idle'
 
     cap.release()
     cv2.destroyAllWindows()
