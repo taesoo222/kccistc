@@ -16,8 +16,9 @@
 """
 import argparse
 import random
+import threading
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import cv2
@@ -54,10 +55,50 @@ def jpeg_roundtrip(img, quality=95):
     return cv2.imdecode(buf, cv2.IMREAD_COLOR) if ok else img
 
 
+class CameraThread:
+    """카메라를 별도 스레드에서 계속 읽어 둔다. 본 루프가 판정하는 동안 다음 프레임이 준비되므로
+    cap.read() 가 새 프레임을 기다리는 시간(30fps 카메라면 최대 약 33ms)이 사라진다."""
+
+    def __init__(self, index):
+        self.cap = cv2.VideoCapture(index)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.cond = threading.Condition()
+        self.frame, self.fresh, self.running = None, False, self.cap.isOpened()
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def isOpened(self):
+        return self.cap.isOpened()
+
+    def _loop(self):
+        while self.running:
+            ret, f = self.cap.read()
+            with self.cond:
+                if not ret:
+                    self.running = False
+                else:
+                    self.frame, self.fresh = f, True
+                self.cond.notify()
+
+    def read(self):
+        """아직 안 쓴 최신 프레임을 돌려준다 (없으면 올 때까지 잠깐 기다림)"""
+        with self.cond:
+            self.cond.wait_for(lambda: self.fresh or not self.running, timeout=1.0)
+            if self.frame is None or not self.running and not self.fresh:
+                return False, None
+            self.fresh = False
+            return True, self.frame
+
+    def release(self):
+        self.running = False
+        self.cap.release()
+
+
 class RpsModel:
-    def __init__(self, path, jpeg=True):
+    def __init__(self, path, jpeg=True, threads=4):
         self.jpeg = jpeg
-        self.it = Interpreter(model_path=path)
+        self.it = Interpreter(model_path=path, num_threads=threads)   # 파이 5 의 4코어 사용
         self.it.allocate_tensors()
         self.inp = self.it.get_input_details()[0]
         self.out = self.it.get_output_details()[0]
@@ -115,15 +156,31 @@ def shade(img, x1, y1, x2, y2, color=(0, 0, 0), alpha=0.55):
     img[y1:y2, x1:x2] = cv2.addWeighted(roi, 1 - alpha, np.full_like(roi, color), alpha, 0)
 
 
+_ICON_CACHE = {}
+
+
+def _icon(cls, s, dim):
+    """크기를 맞춘 아이콘 (rgb, alpha). 매 프레임 다시 줄이지 않도록 저장해 둔다."""
+    key = (cls, s, dim)
+    if key not in _ICON_CACHE:
+        icon = ICONS.get(cls)
+        if icon is None or icon.ndim != 3 or icon.shape[2] != 4:
+            _ICON_CACHE[key] = None
+        else:
+            icon = cv2.resize(icon, (s, s), interpolation=cv2.INTER_AREA)
+            rgb, alpha = icon[:, :, :3].astype(np.float32), icon[:, :, 3:].astype(np.float32) / 255
+            if dim:
+                rgb = np.repeat(cv2.cvtColor(icon[:, :, :3], cv2.COLOR_BGR2GRAY)[:, :, None], 3, 2).astype(np.float32)
+                alpha *= 0.5
+            _ICON_CACHE[key] = (rgb, alpha)
+    return _ICON_CACHE[key]
+
+
 def draw_icon(img, cls, cx, cy, s, color, dim=False):
     """가위/바위/보 아이콘을 (cx, cy) 중심에 s x s 크기로. dim=True 면 흐린 회색 (AI 고민 중)"""
-    icon = ICONS.get(cls)
-    if icon is not None and icon.ndim == 3 and icon.shape[2] == 4:
-        icon = cv2.resize(icon, (s, s), interpolation=cv2.INTER_AREA)
-        rgb, alpha = icon[:, :, :3].astype(np.float32), icon[:, :, 3:].astype(np.float32) / 255
-        if dim:
-            rgb = np.repeat(cv2.cvtColor(icon[:, :, :3], cv2.COLOR_BGR2GRAY)[:, :, None], 3, 2).astype(np.float32)
-            alpha *= 0.5
+    cached = _icon(cls, s, dim)
+    if cached is not None:
+        rgb, alpha = cached
         x1, y1 = cx - s // 2, cy - s // 2
         # 화면 밖으로 나가는 부분은 잘라낸다
         ix1, iy1 = max(0, -x1), max(0, -y1)
@@ -186,14 +243,15 @@ def main():
                     help='both: 학습 모델+손가락 규칙, cnn: 학습 모델만, rule: 손가락 규칙만')
     ap.add_argument('--trust', type=float, default=0.9,
                     help='두 판정이 다를 때 학습 모델을 믿는 최소 확률')
+    ap.add_argument('--model-every', type=int, default=3,
+                    help='평소에는 N 프레임마다 학습 모델 실행 (SHOW! 판정 구간은 항상 매 프레임)')
+    ap.add_argument('--threads', type=int, default=4, help='학습 모델 계산 스레드 수')
+    ap.add_argument('--profile', action='store_true', help='단계별 시간(ms)을 터미널에 출력')
     args = ap.parse_args()
 
-    model = RpsModel(args.model, jpeg=not args.no_jpeg)
+    model = RpsModel(args.model, jpeg=not args.no_jpeg, threads=args.threads)
     hd = HandDetector(maxHands=2)
-    cap = cv2.VideoCapture(args.camera)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap = CameraThread(args.camera)
     if not cap.isOpened():
         raise SystemExit(f'카메라 {args.camera}번을 열 수 없습니다 (다른 프로그램이 사용 중인지 확인)')
     cv2.namedWindow('Rock Paper Scissors', cv2.WINDOW_NORMAL)
@@ -205,11 +263,18 @@ def main():
     winner, rounds = None, 0
     score = Counter()
     t_prev, fps = time.time(), 0.0
+    model_cache = {}                 # side -> (모델 판정, 확률): 모델을 건너뛰는 프레임에서 재사용
+    n_frame = 0
+    prof, prof_n = defaultdict(float), 0
 
     while True:
+        t0 = time.perf_counter()
         ret, frame = cap.read()
         if not ret:
             break
+        n_frame += 1
+        t_read = time.perf_counter()
+        t_detect = t_read
         if not args.no_mirror:
             frame = cv2.flip(frame, 1)   # 거울처럼 보이게 (학습 때 좌우반전 증강을 해서 인식에는 영향 적음)
         fh, fw = frame.shape[:2]
@@ -221,16 +286,26 @@ def main():
         now_pick = {}
         if state != 'menu':
             hands, _ = hd.findHands(frame, draw=False)
-            # 모델에 넣을 화면: capture.py 의 첫 번째 JPEG 저장과 같은 과정 (손이 있을 때만 계산)
-            model_frame = jpeg_roundtrip(frame) if hands and not args.no_jpeg else frame
-            for side, hand in assign_hands(hands, fw, mode).items():
+            t_detect = time.perf_counter()
+            # 이번 프레임에 학습 모델을 돌릴지: 판정 구간(capture)은 항상, 평소에는 N 프레임마다
+            run_model = args.judge != 'rule' and (state == 'capture' or n_frame % max(1, args.model_every) == 0)
+            model_frame = None           # 모델에 넣을 화면 (JPEG 흉내), 필요할 때 한 번만 만든다
+            assigned = assign_hands(hands, fw, mode)
+            for side in list(model_cache):   # 손이 사라진 쪽의 저장값은 버린다
+                if side not in assigned:
+                    model_cache.pop(side)
+            for side, hand in assigned.items():
                 box = crop_box(hand['bbox'], fw, fh)
                 if box is None:          # 화면 가장자리: 학습 때처럼 판정하지 않음
                     x, y, w, h = hand['bbox']
                     cv2.rectangle(view, (x, y), (x + w, y + h), (128, 128, 128), 2)
                     continue
                 x1, y1, x2, y2 = box
-                cnn_cls, p = model.predict(model_frame[y1:y2, x1:x2])
+                if run_model or side not in model_cache:
+                    if model_frame is None:  # capture.py 의 첫 번째 JPEG 저장과 같은 과정
+                        model_frame = frame if args.no_jpeg else jpeg_roundtrip(frame)
+                    model_cache[side] = model.predict(model_frame[y1:y2, x1:x2])
+                cnn_cls, p = model_cache[side]
                 rule_cls = finger_rule.classify([(pt[0], pt[1]) for pt in hand['lmList']])
                 if args.judge == 'cnn':
                     cls, src = cnn_cls, 'cnn'
@@ -252,6 +327,7 @@ def main():
                 # 박스 아래: 두 판정을 각각 표시 (발표·디버깅용)
                 detail = f"model {NAME[cnn_cls]} {p:.0%} / finger {NAME.get(rule_cls, '?')}"
                 text(view, detail, (x1, min(fh - 8, y2 + 20)), 0.45, WHITE, 1)
+        t_judge = time.perf_counter()
 
         # ---- 게임 진행: menu / idle -> countdown -> capture -> result -> idle ----
         elapsed = now - t_state
@@ -349,8 +425,18 @@ def main():
         t_prev = now
         text(panel, f'FPS {fps:.0f}', (PANEL_W - 75, fh - 8), 0.45, GRAY, 1, outline=False)
 
+        t_draw = time.perf_counter()
         cv2.imshow('Rock Paper Scissors', np.hstack([view, panel]))
         key = cv2.waitKey(1) & 0xFF
+        if args.profile:
+            t_show = time.perf_counter()
+            for k, v in (('camera', t_read - t0), ('hand', t_detect - t_read), ('judge', t_judge - t_detect),
+                         ('draw', t_draw - t_judge), ('show', t_show - t_draw), ('total', t_show - t0)):
+                prof[k] += v
+            prof_n += 1
+            if prof_n == 30:             # 30 프레임 평균
+                print('  '.join(f'{k} {v / prof_n * 1000:5.1f}ms' for k, v in prof.items()), flush=True)
+                prof, prof_n = defaultdict(float), 0
         if key in (ord('q'), 27):
             break
         if state == 'menu':
