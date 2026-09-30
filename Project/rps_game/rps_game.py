@@ -9,6 +9,10 @@
 
 화면 = 카메라(640x480) + 오른쪽 정보 패널.
 손 자르기는 crop_hands.py 와 같은 함수를 쓴다 (학습 사진과 동일한 전처리).
+
+판정 = 학습 모델(MobileNetV3-Small) + 손가락 개수 규칙(finger_rule.py)
+  둘이 같으면 그대로, 다르면 모델 확신이 --trust(기본 0.9) 이상일 때만 모델, 아니면 손가락 규칙.
+  --judge cnn : 학습 모델만 / --judge rule : 손가락 규칙만 (비교용)
 """
 import argparse
 import random
@@ -21,6 +25,7 @@ import numpy as np
 from ai_edge_litert.interpreter import Interpreter
 from cvzone.HandTrackingModule import HandDetector
 
+import finger_rule
 from crop_hands import CLASSES, crop_box, make_square_img
 
 NAME = {'scissors': 'SCISSORS', 'rock': 'ROCK', 'paper': 'PAPER'}
@@ -177,6 +182,10 @@ def main():
     ap.add_argument('--no-mirror', action='store_true', help='좌우 반전(거울 모드) 끄기')
     ap.add_argument('--no-jpeg', action='store_true',
                     help='모델 입력의 JPEG 압축 흉내 끄기 (학습 사진과 달라짐, 비교용)')
+    ap.add_argument('--judge', choices=['both', 'cnn', 'rule'], default='both',
+                    help='both: 학습 모델+손가락 규칙, cnn: 학습 모델만, rule: 손가락 규칙만')
+    ap.add_argument('--trust', type=float, default=0.9,
+                    help='두 판정이 다를 때 학습 모델을 믿는 최소 확률')
     args = ap.parse_args()
 
     model = RpsModel(args.model, jpeg=not args.no_jpeg)
@@ -221,13 +230,28 @@ def main():
                     cv2.rectangle(view, (x, y), (x + w, y + h), (128, 128, 128), 2)
                     continue
                 x1, y1, x2, y2 = box
-                cls, p = model.predict(model_frame[y1:y2, x1:x2])
+                cnn_cls, p = model.predict(model_frame[y1:y2, x1:x2])
+                rule_cls = finger_rule.classify([(pt[0], pt[1]) for pt in hand['lmList']])
+                if args.judge == 'cnn':
+                    cls, src = cnn_cls, 'cnn'
+                elif args.judge == 'rule':
+                    cls, src = rule_cls, 'rule'
+                else:
+                    cls, src = finger_rule.fuse(cnn_cls, p, rule_cls, args.trust)
+                if cls is None:          # 손가락 규칙만 쓸 때 애매한 모양
+                    cv2.rectangle(view, (x1, y1), (x2, y2), (128, 128, 128), 2)
+                    text(view, f'{label[side]}  ?', (x1 + 5, y1 - 6), 0.55, GRAY, 2)
+                    continue
                 now_pick[side] = cls
                 cv2.rectangle(view, (x1, y1), (x2, y2), COLORS[cls], 3)
-                tag = f'{label[side]}  {NAME[cls]} {p:.0%}'
+                mark = {'both': 'OK', 'cnn': 'AI', 'rule': 'FINGER'}[src]   # 어느 판정을 썼는지
+                tag = f'{label[side]}  {NAME[cls]}  [{mark}]'
                 (tw, th), _ = cv2.getTextSize(tag, FONT, 0.55, 2)
                 cv2.rectangle(view, (x1, y1 - th - 12), (x1 + tw + 10, y1), COLORS[cls], -1)
                 text(view, tag, (x1 + 5, y1 - 6), 0.55, WHITE, 2, outline=False)
+                # 박스 아래: 두 판정을 각각 표시 (발표·디버깅용)
+                detail = f"model {NAME[cnn_cls]} {p:.0%} / finger {NAME.get(rule_cls, '?')}"
+                text(view, detail, (x1, min(fh - 8, y2 + 20)), 0.45, WHITE, 1)
 
         # ---- 게임 진행: menu / idle -> countdown -> capture -> result -> idle ----
         elapsed = now - t_state
