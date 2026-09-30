@@ -1,0 +1,5 @@
+cvzone==1.6.1
+mediapipe==0.10.18
+ai-edge-litert==2.2.0
+opencv-contrib-python==4.10.0.84
+numpy==1.26.4
