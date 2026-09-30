@@ -250,7 +250,9 @@ def main():
     args = ap.parse_args()
 
     model = RpsModel(args.model, jpeg=not args.no_jpeg, threads=args.threads)
-    hd = HandDetector(maxHands=2)
+    # MediaPipe 는 찾은 손이 maxHands 보다 적으면 손을 더 찾으려고 매 프레임 손바닥 검출을 다시 돌린다.
+    # AI 대전은 손이 하나뿐이므로 maxHands=1 검출기를 따로 써서 그 비용을 없앤다.
+    detectors = {'2p': HandDetector(maxHands=2), 'ai': HandDetector(maxHands=1)}
     cap = CameraThread(args.camera)
     if not cap.isOpened():
         raise SystemExit(f'카메라 {args.camera}번을 열 수 없습니다 (다른 프로그램이 사용 중인지 확인)')
@@ -285,7 +287,7 @@ def main():
         # ---- 손 찾기 -> P1/P2 배정 -> 손마다 판정 (메뉴에서는 생략) ----
         now_pick = {}
         if state != 'menu':
-            hands, _ = hd.findHands(frame, draw=False)
+            hands, _ = detectors[mode].findHands(frame, draw=False)
             t_detect = time.perf_counter()
             # 이번 프레임에 학습 모델을 돌릴지: 판정 구간(capture)은 항상, 평소에는 N 프레임마다
             run_model = args.judge != 'rule' and (state == 'capture' or n_frame % max(1, args.model_every) == 0)
