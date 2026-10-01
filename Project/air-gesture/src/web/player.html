@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Air Gesture Player</title>
+<style>
+  :root { --bg: #111; --fg: #eee; --dim: #888; --accent: #4fc3f7; --panel: rgba(0,0,0,.7); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; }
+  header { display: flex; gap: 8px; padding: 10px 16px; align-items: center; flex-wrap: wrap; }
+  header input { flex: 1; min-width: 200px; padding: 6px 8px; background: #222; color: var(--fg); border: 1px solid #444; border-radius: 4px; }
+  header button { padding: 6px 12px; }
+  #conn { font-size: 13px; color: var(--dim); }
+  #conn.ok { color: #8bc34a; }
+  #stage { position: relative; width: 100%; max-width: 1280px; margin: 0 auto; aspect-ratio: 16 / 9; }
+  #player { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #mode { position: absolute; top: 12px; left: 12px; padding: 6px 12px; border-radius: 16px;
+          background: var(--panel); font-size: 15px; pointer-events: none; display: none; }
+  #volume { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 56px; padding: 10px 8px;
+            background: var(--panel); border-radius: 8px; text-align: center; pointer-events: none;
+            opacity: 0; transition: opacity .3s; }
+  #volume.show { opacity: 1; }
+  #volume .bar { height: 160px; width: 12px; margin: 0 auto 8px; background: #333; border-radius: 6px; position: relative; overflow: hidden; }
+  #volume .fill { position: absolute; bottom: 0; width: 100%; background: var(--accent); transition: height .15s; }
+  #toast { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 64px;
+           background: var(--panel); border-radius: 50%; width: 120px; height: 120px; line-height: 120px; text-align: center;
+           pointer-events: none; opacity: 0; transition: opacity .3s; }
+  #toast.show { opacity: 1; }
+  #start { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+           background: rgba(0,0,0,.6); font-size: 20px; cursor: pointer; z-index: 2; }
+</style>
+</head>
+<body>
+<header>
+  <input id="video" placeholder="유튜브 URL 또는 영상 ID" value="M7lc1UVf-VE">
+  <button id="load">불러오기</button>
+  <span id="conn">Pi 연결 안 됨</span>
+</header>
+<div id="stage">
+  <div id="player"></div>
+  <div id="mode"></div>
+  <div id="volume"><div class="bar"><div class="fill"></div></div><span class="num">-</span></div>
+  <div id="toast"></div>
+  <!-- Browsers block programmatic playback with sound until the user interacts with the page once. -->
+  <div id="start">클릭해서 시작</div>
+</div>
+
+<script>
+const MODE_LABEL = {
+  IDLE: "",
+  MEDIA: "🎵 미디어 모드",
+  VOLUME: "🔊 볼륨 모드 — 오른쪽으로 돌리면 +, 왼쪽은 −",
+  PLAYPAUSE: "✊ 손을 폈다가 주먹을 쥐면 재생/정지",
+};
+
+let player = null;
+let ws = null;
+let volumeTimer = null, toastTimer = null;
+
+// ---- YouTube IFrame Player API ----------------------------------------
+const tag = document.createElement("script");
+tag.src = "https://www.youtube.com/iframe_api";
+document.head.appendChild(tag);
+
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player("player", {
+    videoId: parseVideoId(document.getElementById("video").value),
+    playerVars: { playsinline: 1, rel: 0 },
+    events: {
+      onReady: () => reportStatus(),
+      onStateChange: () => reportStatus(),
+      onError: (e) => console.warn("player error", e.data),  // 101/150: embedding disabled by owner
+    },
+  });
+}
+
+function parseVideoId(text) {
+  text = text.trim();
+  const m = text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
+  return m ? m[1] : text;
+}
+
+document.getElementById("load").onclick = () => {
+  if (player) player.loadVideoById(parseVideoId(document.getElementById("video").value));
+};
+document.getElementById("start").onclick = (e) => {
+  e.currentTarget.remove();
+  if (player) player.playVideo();
+};
+
+// ---- commands from the Pi ---------------------------------------------
+function handle(cmd) {
+  switch (cmd.cmd) {
+    case "mode": showMode(cmd.mode); break;
+    case "volume":
+      if (!player) return;
+      if (player.isMuted()) player.unMute();
+      player.setVolume(cmd.value);
+      showVolume(cmd.value);
+      reportStatus(cmd.value);
+      break;
+    case "toggle":
+      if (!player) return;
+      if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+        player.pauseVideo(); showToast("⏸");
+      } else {
+        player.playVideo(); showToast("▶");
+      }
+      break;
+  }
+}
+
+// getVolume() can lag right after setVolume(), so the value we just set is passed in.
+function reportStatus(volume) {
+  if (!player || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({
+    type: "status",
+    state: player.getPlayerState(),
+    volume: volume ?? player.getVolume(),
+  }));
+}
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  const conn = document.getElementById("conn");
+  ws.onopen = () => { conn.textContent = "Pi 연결됨"; conn.className = "ok"; reportStatus(); };
+  ws.onmessage = (e) => handle(JSON.parse(e.data));
+  ws.onclose = () => { conn.textContent = "Pi 연결 끊김 — 재연결 중"; conn.className = ""; setTimeout(connect, 1000); };
+}
+connect();
+
+// ---- overlay ----------------------------------------------------------
+function showMode(mode) {
+  const el = document.getElementById("mode");
+  el.textContent = MODE_LABEL[mode] ?? mode;
+  el.style.display = MODE_LABEL[mode] ? "block" : "none";
+  if (mode === "VOLUME" && player) showVolume(player.getVolume());
+}
+
+function showVolume(v) {
+  const el = document.getElementById("volume");
+  el.querySelector(".fill").style.height = v + "%";
+  el.querySelector(".num").textContent = v;
+  el.classList.add("show");
+  clearTimeout(volumeTimer);
+  volumeTimer = setTimeout(() => el.classList.remove("show"), 1500);
+}
+
+function showToast(text) {
+  const el = document.getElementById("toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 800);
+}
+</script>
+</body>
+</html>

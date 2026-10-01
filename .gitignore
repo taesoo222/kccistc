@@ -37,3 +37,8 @@ Thumbs.db
 
 # ==== sync script: per-PC workspace path override ====
 scripts/workspace-root.local
+
+# ==== Python ====
+__pycache__/
+*.pyc
+.venv/
