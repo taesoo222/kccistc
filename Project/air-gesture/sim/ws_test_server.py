@@ -15,7 +15,7 @@ from aiohttp import WSMsgType, web
 PAGE = Path(__file__).with_name("ws_test.html")
 PORT = 8080
 HELP = """commands:
-  play / pause / toggle
+  play / pause
   +  /  -        volume +10 / -10
   vol <0-100>    set volume
   q              quit"""
@@ -25,7 +25,7 @@ clients = set()
 
 def parse(line):
     """Turn a typed line into a command dict, or None if it is not a command."""
-    if line in ("play", "pause", "toggle"):
+    if line in ("play", "pause"):
         return {"cmd": line}
     if line in ("+", "-"):
         return {"cmd": "volume_step", "delta": 10 if line == "+" else -10}

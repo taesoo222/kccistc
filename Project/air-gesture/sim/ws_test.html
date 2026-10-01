@@ -77,10 +77,6 @@ function run(cmd) {
   switch (cmd.cmd) {
     case "play":   player.playVideo(); break;
     case "pause":  player.pauseVideo(); break;
-    case "toggle":
-      if (player.getPlayerState() === YT.PlayerState.PLAYING) player.pauseVideo();
-      else player.playVideo();
-      break;
     case "volume_step": setVolume(player.getVolume() + cmd.delta); break;
     case "volume":      setVolume(cmd.value); break;
     default: log(`알 수 없는 명령: ${cmd.cmd}`);
