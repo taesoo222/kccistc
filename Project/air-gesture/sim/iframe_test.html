@@ -25,7 +25,6 @@
 <div class="row">
   <button onclick="call('playVideo')">▶ 재생</button>
   <button onclick="call('pauseVideo')">⏸ 정지</button>
-  <button onclick="toggle()">⏯ 토글</button>
   <button onclick="step(-10)">🔉 −10</button>
   <button onclick="step(+10)">🔊 +10</button>
 </div>
@@ -79,12 +78,6 @@ function call(fn) {
   if (!player) return log("플레이어 준비 전");
   player[fn]();
   log(`${fn}()`);
-}
-
-function toggle() {
-  if (!player) return;
-  if (player.getPlayerState() === YT.PlayerState.PLAYING) call("pauseVideo");
-  else call("playVideo");
 }
 
 function step(d) {
