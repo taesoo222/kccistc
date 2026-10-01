@@ -4,7 +4,8 @@
     python fake_recognizer.py --host 192.168.0.20
 
     m  MEDIA_ENTER     v  VOL_ENTER     p  PP_ENTER
-    +  ROTATE_CW       -  ROTATE_CCW    f  OPEN_TO_FIST
+    +  ROTATE_CW       -  ROTATE_CCW
+    o  OPEN_PALM (play)                 f  FIST (pause)
     x  EXIT            q  quit
 Several keys on one line are sent in order, e.g. "mv++" = media, volume, up, up.
 """
@@ -15,7 +16,7 @@ import time
 
 KEYS = {
     "m": "MEDIA_ENTER", "v": "VOL_ENTER", "p": "PP_ENTER",
-    "+": "ROTATE_CW", "-": "ROTATE_CCW", "f": "OPEN_TO_FIST", "x": "EXIT",
+    "+": "ROTATE_CW", "-": "ROTATE_CCW", "o": "OPEN_PALM", "f": "FIST", "x": "EXIT",
 }
 
 if __name__ == "__main__":

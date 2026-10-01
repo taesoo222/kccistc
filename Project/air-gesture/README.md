@@ -28,7 +28,7 @@ cd src && python server.py            # add -v for debug logs
 # on the PC (same LAN): open http://<pi-ip>:8080 and click once to start
 
 # on the Pi, second terminal (until the real recognizer is ready)
-python sim/fake_recognizer.py         # e.g. "mv++" then "pf"
+python sim/fake_recognizer.py         # e.g. "mv++", then "pf" (pause) / "po" (play)
 ```
 
 Tests: `python -m unittest discover -s sim`
@@ -45,7 +45,8 @@ One JSON datagram per **completed** gesture: `{"g": "<NAME>", "t": <time.time()>
 | `PP_ENTER`     | enter play/pause mode                     | MEDIA, VOLUME |
 | `ROTATE_CW`    | inverted-L rotated right (user's view) -> volume +10 | VOLUME |
 | `ROTATE_CCW`   | inverted-L rotated left -> volume -10     | VOLUME     |
-| `OPEN_TO_FIST` | open hand -> fist: play/pause, back to MEDIA | PLAYPAUSE |
+| `OPEN_PALM`    | open hand -> play, back to MEDIA          | PLAYPAUSE  |
+| `FIST`         | fist -> pause, back to MEDIA              | PLAYPAUSE  |
 | `EXIT`         | one level up (optional)                   | any but IDLE |
 
 Events outside their mode are ignored. Rotation direction is defined from the
@@ -55,7 +56,8 @@ Events outside their mode are ignored. Rotation direction is defined from the
 
 - Volume: fixed step 10, clamped 0..100, 0.7 s cooldown between steps.
   Steps start from the volume the page reports, so manual slider changes are respected.
-- Play/pause: page checks `getPlayerState()` and calls `playVideo()`/`pauseVideo()`; 1 s cooldown.
+- Play/pause: separate commands, no toggle (`OPEN_PALM` -> `playVideo()`, `FIST` -> `pauseVideo()`);
+  one action per `PP_ENTER`, 1 s cooldown.
 - Timeouts: VOLUME/PLAYPAUSE -> MEDIA after 2 s idle, MEDIA -> IDLE after 5 s.
 
 ## Notes

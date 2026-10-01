@@ -52,7 +52,7 @@ const MODE_LABEL = {
   IDLE: "",
   MEDIA: "🎵 미디어 모드",
   VOLUME: "🔊 볼륨 모드 — 오른쪽으로 돌리면 +, 왼쪽은 −",
-  PLAYPAUSE: "✊ 손을 폈다가 주먹을 쥐면 재생/정지",
+  PLAYPAUSE: "✋ 손바닥을 펴면 재생 / ✊ 주먹을 쥐면 정지",
 };
 
 let player = null;
@@ -101,13 +101,13 @@ function handle(cmd) {
       showVolume(cmd.value);
       reportStatus(cmd.value);
       break;
-    case "toggle":
+    case "play":
       if (!player) return;
-      if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-        player.pauseVideo(); showToast("⏸");
-      } else {
-        player.playVideo(); showToast("▶");
-      }
+      player.playVideo(); showToast("▶");
+      break;
+    case "pause":
+      if (!player) return;
+      player.pauseVideo(); showToast("⏸");
       break;
   }
 }

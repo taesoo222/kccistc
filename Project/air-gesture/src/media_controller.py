@@ -5,13 +5,13 @@ The recognizer only reports *what it sees*; this module decides what that
 means in the current mode.
 
     IDLE --MEDIA_ENTER--> MEDIA --VOL_ENTER--> VOLUME     ROTATE_CW / ROTATE_CCW -> volume +/- one step
-                            |   --PP_ENTER---> PLAYPAUSE  OPEN_TO_FIST -> toggle, back to MEDIA
+                            |   --PP_ENTER---> PLAYPAUSE  OPEN_PALM -> play, FIST -> pause, back to MEDIA
     VOLUME/PLAYPAUSE --EXIT or idle timeout--> MEDIA --EXIT or idle timeout--> IDLE
 
 Commands sent to the player page (dicts, JSON-encoded by the server):
     {"cmd": "mode",   "mode": "VOLUME"}
     {"cmd": "volume", "value": 40}
-    {"cmd": "toggle"}
+    {"cmd": "play"} / {"cmd": "pause"}
 """
 import logging
 import time
@@ -27,7 +27,8 @@ VOL_ENTER = "VOL_ENTER"
 PP_ENTER = "PP_ENTER"
 ROTATE_CW = "ROTATE_CW"        # clockwise from the user's point of view -> volume up
 ROTATE_CCW = "ROTATE_CCW"      # counter-clockwise -> volume down
-OPEN_TO_FIST = "OPEN_TO_FIST"
+OPEN_PALM = "OPEN_PALM"        # open hand -> play
+FIST = "FIST"                  # fist -> pause
 EXIT = "EXIT"
 
 
@@ -35,7 +36,7 @@ EXIT = "EXIT"
 class Config:
     volume_step: int = 10
     volume_cooldown_s: float = 0.7    # one rotation = one step, even if the recognizer repeats it
-    toggle_cooldown_s: float = 1.0
+    playpause_cooldown_s: float = 1.0
     submode_timeout_s: float = 2.0    # VOLUME / PLAYPAUSE -> MEDIA
     media_timeout_s: float = 5.0      # MEDIA -> IDLE
     stale_event_s: float = 0.3        # drop events whose "t" is older than this
@@ -51,7 +52,7 @@ class MediaController:
         self.state = IDLE
         self.volume = 50              # last known player volume (0..100)
         self._last_volume_step = float("-inf")
-        self._last_toggle = float("-inf")
+        self._last_playpause = float("-inf")
         self.last_activity = clock()
 
         self._dispatch = {
@@ -63,7 +64,8 @@ class MediaController:
             (VOLUME, PP_ENTER): lambda ev, now: self._set_state(PLAYPAUSE),
             (VOLUME, ROTATE_CW): lambda ev, now: self._step_volume(+1, now),
             (VOLUME, ROTATE_CCW): lambda ev, now: self._step_volume(-1, now),
-            (PLAYPAUSE, OPEN_TO_FIST): self._on_toggle,
+            (PLAYPAUSE, OPEN_PALM): lambda ev, now: self._play_pause("play", now),
+            (PLAYPAUSE, FIST): lambda ev, now: self._play_pause("pause", now),
             (MEDIA, EXIT): lambda ev, now: self._set_state(IDLE),
             (VOLUME, EXIT): lambda ev, now: self._set_state(MEDIA),
             (PLAYPAUSE, EXIT): lambda ev, now: self._set_state(MEDIA),
@@ -125,9 +127,8 @@ class MediaController:
         self.volume = new
         self.send({"cmd": "volume", "value": new})
 
-    def _on_toggle(self, ev, now):
-        if now - self._last_toggle >= self.cfg.toggle_cooldown_s:
-            self._last_toggle = now
-            # The page checks getPlayerState() and plays or pauses accordingly.
-            self.send({"cmd": "toggle"})
-        self._set_state(MEDIA)
+    def _play_pause(self, cmd, now):
+        if now - self._last_playpause >= self.cfg.playpause_cooldown_s:
+            self._last_playpause = now
+            self.send({"cmd": cmd})
+        self._set_state(MEDIA)  # one action per PP_ENTER, so a relaxed open hand can't replay

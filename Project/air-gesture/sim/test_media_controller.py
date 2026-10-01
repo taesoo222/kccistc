@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from media_controller import (EXIT, IDLE, MEDIA, MEDIA_ENTER, OPEN_TO_FIST,  # noqa: E402
+from media_controller import (EXIT, FIST, IDLE, MEDIA, MEDIA_ENTER, OPEN_PALM,  # noqa: E402
                               PLAYPAUSE, PP_ENTER, ROTATE_CCW, ROTATE_CW,
                               VOL_ENTER, VOLUME, MediaController)
 
@@ -46,7 +46,8 @@ class MediaControllerTest(unittest.TestCase):
     def test_gestures_ignored_outside_their_mode(self):
         self.ev(VOL_ENTER)            # not in MEDIA yet
         self.ev(ROTATE_CW)
-        self.ev(OPEN_TO_FIST)
+        self.ev(OPEN_PALM)
+        self.ev(FIST)
         self.assertEqual(self.mc.state, IDLE)
         self.assertEqual(self.sent, [])
         self.ev(MEDIA_ENTER)
@@ -85,20 +86,39 @@ class MediaControllerTest(unittest.TestCase):
         self.ev(ROTATE_CCW)
         self.assertEqual(self.cmds("volume")[-1]["value"], 20)
 
-    def test_toggle_returns_to_media(self):
+    def test_fist_pauses_and_returns_to_media(self):
         self.ev(MEDIA_ENTER)
         self.ev(PP_ENTER)
-        self.ev(OPEN_TO_FIST)
-        self.assertEqual(len(self.cmds("toggle")), 1)
+        self.ev(FIST)
+        self.assertEqual(self.cmds("pause"), [{"cmd": "pause"}])
+        self.assertEqual(self.cmds("play"), [])
         self.assertEqual(self.mc.state, MEDIA)
 
-    def test_toggle_cooldown(self):
+    def test_open_palm_plays_and_returns_to_media(self):
         self.ev(MEDIA_ENTER)
         self.ev(PP_ENTER)
-        self.ev(OPEN_TO_FIST)
+        self.ev(OPEN_PALM)
+        self.assertEqual(self.cmds("play"), [{"cmd": "play"}])
+        self.assertEqual(self.cmds("pause"), [])
+        self.assertEqual(self.mc.state, MEDIA)
+
+    def test_one_action_per_entry(self):
+        self.ev(MEDIA_ENTER)
+        self.ev(PP_ENTER)
+        self.ev(FIST)
+        self.ev(OPEN_PALM)                 # back in MEDIA: ignored
+        self.assertEqual(self.cmds("play"), [])
+
+    def test_playpause_cooldown(self):
+        self.ev(MEDIA_ENTER)
+        self.ev(PP_ENTER)
+        self.ev(FIST)
         self.ev(PP_ENTER, advance=0.1)
-        self.ev(OPEN_TO_FIST, advance=0.1)  # 0.2 s after the first toggle
-        self.assertEqual(len(self.cmds("toggle")), 1)
+        self.ev(OPEN_PALM, advance=0.1)    # 0.2 s after the pause
+        self.assertEqual(self.cmds("play"), [])
+        self.ev(PP_ENTER)
+        self.ev(OPEN_PALM)                 # well after the cooldown
+        self.assertEqual(self.cmds("play"), [{"cmd": "play"}])
 
     def test_exit_steps_back(self):
         self.ev(MEDIA_ENTER)
