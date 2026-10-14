@@ -11,7 +11,6 @@ module stopwatch_data_path #(
     input                     run,
     input                     clear,
     input                     mode,
-    input                     option,
     output [MSEC_WIDTH-1 : 0] msec_count,
     output [ SEC_WIDTH-1 : 0] sec_count,
     output [ MIN_WIDTH-1 : 0] min_count,
@@ -34,7 +33,6 @@ module stopwatch_data_path #(
         .i_run     (run),
         .i_clear   (clear),
         .i_mode    (mode),
-        .i_option  (option),
         .time_count(msec_count),
         .o_tick    (w_tick_sec)
     );
@@ -48,7 +46,6 @@ module stopwatch_data_path #(
         .i_run     (run),
         .i_clear   (clear),
         .i_mode    (mode),
-        .i_option  (option),
         .time_count(sec_count),
         .o_tick    (w_tick_min)
     );
@@ -62,7 +59,6 @@ module stopwatch_data_path #(
         .i_run     (run),
         .i_clear   (clear),
         .i_mode    (mode),
-        .i_option  (option),
         .time_count(min_count),
         .o_tick    (w_tick_hour)
     );
@@ -76,7 +72,6 @@ module stopwatch_data_path #(
         .i_run     (run),
         .i_clear   (clear),
         .i_mode    (mode),
-        .i_option  (option),
         .time_count(hour_count),
         .o_tick    ()
     );
@@ -120,7 +115,6 @@ module time_counter_stopwatch #(
     input                     i_run,
     input                     i_clear,
     input                     i_mode,
-    input                     i_option,
     output [BIT_WIDTH -1 : 0] time_count,
     output                    o_tick
 );

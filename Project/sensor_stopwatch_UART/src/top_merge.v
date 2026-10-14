@@ -35,7 +35,7 @@ module top_merge (
          w_uart_dht_start,
          w_uart_get_start;
     // from control_unit
-    wire w_run, w_clear, w_mode_sw, w_option,  //stopwatch
+    wire w_run, w_clear, w_mode_sw,  //stopwatch
     w_hour_set, w_min_set, w_sec_set, w_mode_watch,  //watch 
     w_sr_start, w_dht_start;  //sensor
 
@@ -52,8 +52,6 @@ module top_merge (
     // wire sensor
     wire [15:0] w_humidity, w_temperature;
     wire [8:0] w_distance;
-    wire w_dht_done, w_dht_valid;
-    wire w_sr_done;
 
     // data selector output
     wire [2:0] display_mode;
@@ -155,7 +153,6 @@ module top_merge (
         .o_run           (w_run),
         .o_mode_swatch   (w_mode_sw),
         .o_clear         (w_clear),
-        .o_option        (w_option),
         .o_hour_set      (w_hour_set),
         .o_min_set       (w_min_set),
         .o_sec_set       (w_sec_set),
@@ -182,7 +179,6 @@ module top_merge (
         .run       (w_run),
         .clear     (w_clear),
         .mode      (w_mode_sw),
-        .option    (w_option),
         //output
         .msec_count(w_stopwatch_msec),
         .sec_count (w_stopwatch_sec),
@@ -196,8 +192,8 @@ module top_merge (
         .start      (w_dht_start),
         .humidity   (w_humidity),
         .temperature(w_temperature),
-        .done       (w_dht_done),
-        .valid      (w_dht_valid),
+        .done       (),
+        .valid      (),
         .dht11_io   (dht11_io)
     );
 
@@ -207,7 +203,7 @@ module top_merge (
         .start   (w_sr_start),
         .echo    (echo),
         .trigger (trigger),
-        .done    (w_sr_done),
+        .done    (),
         .distance(w_distance)
     );
 

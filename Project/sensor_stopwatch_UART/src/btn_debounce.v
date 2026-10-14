@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 module btn_debouncer (
     input  clk,
     input  reset,
@@ -5,14 +6,14 @@ module btn_debouncer (
     output o_btn
 );
 
-    reg [15:0] q_reg;  // 8tab shift register SIPO
-    wire debounce;  //output of 8 AND gate
+    reg [15:0] q_reg;  // 16-tap shift register SIPO
+    wire debounce;  //output of 16-input AND gate
     reg edge_reg;
 
     reg [$clog2(50_000 )-1:0] counter_reg;
     reg o_1mhz;
 
-    // clock div : 100MHZ -> 1MHz
+    // clock div : 100MHZ -> 1kHz
     always @(posedge clk, posedge reset) begin
         if (reset) begin
             counter_reg <= 0;
@@ -26,17 +27,16 @@ module btn_debouncer (
         end
     end
 
-    // 8bit shift register, SIPO
+    // 16bit shift register, SIPO
     always @(posedge o_1mhz, posedge reset) begin
         if (reset) begin
             q_reg <= 16'h00;
         end else begin
-            // q_reg <= {q_reg[6:0], i_btn};
-            q_reg <= {i_btn, q_reg[15:1]};  // same : 
+            q_reg <= {i_btn, q_reg[15:1]};
         end
     end
 
-    // 8bit input AND gate
+    // 16bit input AND gate
     assign debounce = &q_reg;
 
     // 1clock delay by debounce

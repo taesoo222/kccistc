@@ -75,7 +75,6 @@ module sr04_controller (
                 clear    = 0;
                 trigger_next = 1;
                 distcnt_next = 0;
-                // distance_next = 0;
                 if (w_tick_us) begin
                     counter_next = counter_reg + 1;
                 end

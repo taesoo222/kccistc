@@ -21,7 +21,6 @@ module fnd_controller #(
     output [           3:0] fnd_com,
     output [           7:0] fnd_data
 );
-    wire [3:0] w_digit_1, w_digit_10, w_digit_100, w_digit_1000;
     wire [3:0] bcd;
     wire [2:0] w_digit_sel;
     wire w_1khz;

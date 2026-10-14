@@ -27,7 +27,6 @@ module control_unit (
     output o_run,
     output o_mode_swatch,
     output o_clear,
-    output o_option,
     output o_hour_set,
     output o_min_set,
     output o_sec_set,
@@ -53,16 +52,12 @@ module control_unit (
 
     reg [3:0] c_state, n_state;
     reg  //stopwatch
-        stop_reg,
-        stop_next,
         run_reg,
         run_next,
         clear_reg,
         clear_next,
         mode_swatch_reg,
-        mode_swatch_next,
-        option_reg,
-        option_next;
+        mode_swatch_next;
     reg  //watch
         min_reg,
         min_next,
@@ -71,9 +66,7 @@ module control_unit (
         sec_reg,
         sec_next,
         mode_watch_reg,
-        mode_watch_next,
-        set_watch_reg,
-        set_watch_next;
+        mode_watch_next;
 
     reg  //sensor
         dht_reg, dht_next, sr_reg, sr_next;
@@ -81,7 +74,6 @@ module control_unit (
     assign o_run         = run_reg;
     assign o_mode_swatch = mode_swatch_reg;
     assign o_clear       = clear_reg;
-    assign o_option      = option_reg;
     assign o_hour_set    = hour_reg;
     assign o_min_set     = min_reg;
     assign o_sec_set     = sec_reg;
@@ -94,30 +86,24 @@ module control_unit (
     always @(posedge clk, posedge reset) begin
         if (reset) begin
             c_state         <= SET_WATCH;
-            stop_reg        <= 1'b0;
             run_reg         <= 1'b0;
             clear_reg       <= 1'b0;
             mode_swatch_reg <= 1'b0;
-            option_reg      <= 1'b0;
             min_reg         <= 1'b0;
             hour_reg        <= 1'b0;
             sec_reg         <= 1'b0;
             mode_watch_reg  <= 1'b0;
-            set_watch_reg   <= 1'b0;
             sr_reg          <= 1'b0;
             dht_reg         <= 1'b0;
         end else begin
             c_state         <= n_state;
-            stop_reg        <= stop_next;
             run_reg         <= run_next;
             clear_reg       <= clear_next;
             mode_swatch_reg <= mode_swatch_next;
-            option_reg      <= option_next;
             min_reg         <= min_next;
             hour_reg        <= hour_next;
             sec_reg         <= sec_next;
             mode_watch_reg  <= mode_watch_next;
-            set_watch_reg   <= set_watch_next;
             sr_reg          <= sr_next;
             dht_reg         <= dht_next;
         end
@@ -126,29 +112,23 @@ module control_unit (
     //next CL
     always @(*) begin
         n_state          = c_state;
-        stop_next        = stop_reg;
         run_next         = run_reg;
         clear_next       = clear_reg;
         mode_swatch_next = mode_swatch_reg;
-        option_next      = option_reg;
         min_next         = min_reg;
         hour_next        = hour_reg;
         sec_next         = sec_reg;
         mode_watch_next  = mode_watch_reg;
-        set_watch_next   = set_watch_reg;
         sr_next          = sr_reg;
         dht_next         = dht_reg;
         case (c_state)
             /////////////////watch/////////////////////
             SET_WATCH: begin
-                stop_next      = 1'b0;
                 run_next       = 1'b0;
                 clear_next     = 1'b0;
-                option_next    = 1'b0;
                 min_next       = 1'b0;
                 hour_next      = 1'b0;
                 sec_next       = 1'b0;
-                set_watch_next = 1'b0;
                 sr_next        = 1'b0;
                 dht_next       = 1'b0;
                 if (i_sw_0) n_state = SW_STOP;
@@ -179,15 +159,12 @@ module control_unit (
             end
             /////////////////stopwatch/////////////////////
             SW_STOP: begin
-                stop_next       = 1'b1;
                 run_next        = 1'b0;
                 clear_next      = 1'b0;
-                option_next     = 1'b0;
                 min_next        = 1'b0;
                 hour_next       = 1'b0;
                 sec_next        = 1'b0;
                 mode_watch_next = 1'b0;
-                set_watch_next  = 1'b0;
                 sr_next         = 1'b0;
                 dht_next        = 1'b0;
                 if (!i_sw_0) n_state = SET_WATCH;
@@ -198,7 +175,6 @@ module control_unit (
                 else n_state = c_state;
             end
             RUN: begin
-                stop_next = 1'b0;
                 run_next  = 1'b1;
                 if (!i_sw_0) n_state = SET_WATCH;
                 else if (btn_L || uart_stop) n_state = SW_STOP;

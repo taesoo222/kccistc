@@ -75,8 +75,6 @@ module uart_rx (
     reg [3:0] tick_count_reg, tick_count_next;
     reg [2:0] bit_count_reg, bit_count_next;
     reg [7:0] data_reg, data_next;
-    //for CL output
-    //reg rx_done_reg;
     reg rx_done_reg, rx_done_next;
 
     assign rx_done = rx_done_reg;
@@ -105,13 +103,9 @@ module uart_rx (
         tick_count_next = tick_count_reg;
         bit_count_next = bit_count_reg;
         data_next = data_reg;
-        //for CL output
-        //rx_done_reg = 0;
         rx_done_next = rx_done_reg;
         case (c_state)
             IDLE: begin
-                //for CL output
-                //rx_done_reg = 0;
                 rx_done_next   = 0;
                 bit_count_next = 0;
                 if (i_baud_tick) begin
@@ -140,8 +134,7 @@ module uart_rx (
             DATA: begin
                 if (i_baud_tick) begin
                     if (tick_count_reg == 0) begin
-                        //data_next = data_reg[bit_count_reg]; //PIPO, bit.indexing
-                        //SIPO 
+                        // SIPO
                         data_next = {rx, data_reg[7:1]};
                     end
                     if (tick_count_reg == 15) begin
@@ -158,11 +151,8 @@ module uart_rx (
             end
             STOP: begin
                 if (i_baud_tick) begin
-                    //rx_done_reg = 1;
                     rx_done_next = 1;
                     if (tick_count_reg == 7) begin
-                        //for CL output
-                        //rx_done_reg = 0;
                         n_state = IDLE;
                     end else begin
                         rx_done_next = 0;

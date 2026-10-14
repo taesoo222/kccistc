@@ -243,7 +243,6 @@ module edge_detection (
 );
 
     reg sync0, sync1, old;
-    reg filter_sync1, filter_old;
 
     always @(posedge clk, posedge reset) begin
         if (reset) begin

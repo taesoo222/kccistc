@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
 
+// Single-character commands : r run, s stop, c clear, m stopwatch mode,
+//                             S sec set, M min set, H hour set, W watch mode
+// String commands            : /get, /dht, /sr
 module uart_ascii_decoder (
     input        clk,
     input        reset,
@@ -161,12 +164,3 @@ module uart_ascii_decoder (
         end
     end
 endmodule
-
-// assign uart_run         = rx_done && (rx_data == 8'h72);  // r :run
-// assign uart_stop        = rx_done && (rx_data == 8'h73);  // s :stop
-// assign uart_clear       = rx_done && (rx_data == 8'h63);  // c :clear
-// assign uart_mode_swatch = rx_done && (rx_data == 8'h6D);  // m :mode_swatch
-// assign uart_sec_set     = rx_done && (rx_data == 8'h53);  // S :sec_set
-// assign uart_min_set     = rx_done && (rx_data == 8'h4D);  // M :min_set
-// assign uart_hour_set    = rx_done && (rx_data == 8'h48);  // H :hour_set
-// assign uart_mode_watch  = rx_done && (rx_data == 8'h57);  // W :mode_watch

@@ -236,7 +236,6 @@ module uart_tx (
                     if (tick_count_reg == 15) begin
                         data_next       = {1'b0, data_reg[7:1]};
                         tick_count_next = 0;
-                        //data_next = data_reg >> 1;
                         if (bit_count_reg == 7) n_state = STOP;
                         else begin
                             n_state        = DATA;
