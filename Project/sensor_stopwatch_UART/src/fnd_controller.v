@@ -49,7 +49,7 @@ module fnd_controller #(
         .fnd_com  (fnd_com)
     );
 
-    digit_splitter_sw_w #(
+    digit_splitter #(
         .BIT_WIDTH(MSEC_WIDTH)
     ) U_DIGIT_SPLITTER_MSEC (
         .ds_in   (msec),
@@ -57,7 +57,7 @@ module fnd_controller #(
         .digit_10(w_msec_digit_10)
     );
 
-    digit_splitter_sw_w #(
+    digit_splitter #(
         .BIT_WIDTH(SEC_WIDTH)
     ) U_DIGIT_SPLITTER_SEC (
         .ds_in   (sec),
@@ -65,7 +65,7 @@ module fnd_controller #(
         .digit_10(w_sec_digit_10)
     );
 
-    digit_splitter_sw_w #(
+    digit_splitter #(
         .BIT_WIDTH(MIN_WIDTH)
     ) U_DIGIT_SPLITTER_MIN (
         .ds_in   (min),
@@ -73,7 +73,7 @@ module fnd_controller #(
         .digit_10(w_min_digit_10)
     );
 
-    digit_splitter_sw_w #(
+    digit_splitter #(
         .BIT_WIDTH(HOUR_WIDTH)
     ) U_DIGIT_SPLITTER_HOURE (
         .ds_in   (hour),
@@ -81,17 +81,17 @@ module fnd_controller #(
         .digit_10(w_hour_digit_10)
     );
     // dht humidity
-    digit_spliter_sensor_dht11 #(
+    digit_splitter #(
         .BIT_WIDTH(8)
     ) U_DIGIT_SPLITER_HUMIDITY (
-        .seg_data(humidity[15:8]),
+        .ds_in   (humidity[15:8]),
         .digit_1 (w_humidity_digit_1),
         .digit_10(w_humidity_digit_10)
     );  // dht temperature
-    digit_spliter_sensor_dht11 #(
+    digit_splitter #(
         .BIT_WIDTH(8)
     ) U_DIGIT_SPLITER_TEMPERATURE (
-        .seg_data(temperature[15:8]),
+        .ds_in   (temperature[15:8]),
         .digit_1 (w_temperature_digit_1),
         .digit_10(w_temperature_digit_10)
     );
@@ -232,7 +232,7 @@ module mux_8x1 (
     end
 endmodule
 
-module digit_splitter_sw_w #(
+module digit_splitter #(
     parameter BIT_WIDTH = 7
 ) (
     input  [(BIT_WIDTH - 1):0] ds_in,
@@ -241,18 +241,6 @@ module digit_splitter_sw_w #(
 );
     assign digit_1  = (ds_in) % 10;
     assign digit_10 = (ds_in / 10) % 10;
-endmodule
-
-module digit_spliter_sensor_dht11 #(
-    parameter BIT_WIDTH = 8
-) (
-    input [(BIT_WIDTH-1):0] seg_data,
-    output [3:0] digit_1,
-    output [3:0] digit_10
-);
-    assign digit_1  = seg_data % 10;
-    assign digit_10 = (seg_data / 10) % 10;
-
 endmodule
 
 module digit_spliter_sensor_sr04 #(
