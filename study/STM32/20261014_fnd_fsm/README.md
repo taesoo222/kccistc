@@ -10,7 +10,7 @@ FSM: start/stop counting and clear. The counter goes up by 1 every 100 ms
 ## Project Structure
 
 ```
-fnd_fsm/
+20261014_fnd_fsm/
 ├── 20261014_FND_fsm.ioc        # STM32CubeMX configuration (MCU, clock, pins)
 └── Core/Src/
     ├── main.c                  # Button edge detection + STOP/RUN/CLEAR FSM
