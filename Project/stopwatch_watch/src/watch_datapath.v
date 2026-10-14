@@ -132,7 +132,7 @@ module tick_gen_100hz (
     input reset,
     output reg o_tick
 );
-    parameter F_COUNT = 1;
+    parameter F_COUNT = 1_000_000;  // 100MHz -> 100Hz
     reg [$clog2(F_COUNT)-1:0] counter_reg;
 
     always @(posedge clk, posedge reset) begin
