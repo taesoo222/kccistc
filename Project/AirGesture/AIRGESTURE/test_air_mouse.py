@@ -1,16 +1,21 @@
 import json
+import sys
 import threading
 import time
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from air_mouse import AirMouse
 from mode_manager import ModeManager
-from pc_companion import PointerReceiver,make_server
 from pointer_bridge import PointerBridge
 from test_controls import fingers
+
+# PointerReceiver lives in the Windows bridge folder
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'AirGesture_PC_bridge'))
+from pointer_receiver import PointerReceiver, make_server
 
 
 def hand():
