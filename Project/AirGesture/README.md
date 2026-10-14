@@ -4,8 +4,6 @@ A system that recognizes hand gestures with a camera on a Raspberry Pi and uses
 them to control video playback and PowerPoint slides on a Windows PC.
 
 - Period: until 2026.10 (team project, KCCI Seoul Technical Education Center)
-- Team: 김민, 김태수, 김민준 (Team 5, Kim's Room)
-- Role: <!-- describe your part -->
 
 ## System Architecture
 
