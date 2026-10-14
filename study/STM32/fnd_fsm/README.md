@@ -12,13 +12,11 @@ FSM: start/stop counting and clear. The counter goes up by 1 every 100 ms
 ```
 fnd_fsm/
 ├── 20261014_FND_fsm.ioc        # STM32CubeMX configuration (MCU, clock, pins)
-├── Core/Src/
-│   ├── main.c                  # Button edge detection + STOP/RUN/CLEAR FSM
-│   └── driver/fnd/
-│       ├── fnd.h               # fnd_show_number() declaration
-│       └── fnd.c               # 4-digit multiplexing and segment patterns
-└── docs/
-    └── statediagram.png        # State diagram
+└── Core/Src/
+    ├── main.c                  # Button edge detection + STOP/RUN/CLEAR FSM
+    └── driver/fnd/
+        ├── fnd.h               # fnd_show_number() declaration
+        └── fnd.c               # 4-digit multiplexing and segment patterns
 ```
 
 Only hand-written code and the `.ioc` file are kept. Everything else is
@@ -28,8 +26,6 @@ file, `system_stm32f4xx.c`, `stm32f4xx_it.c`, `stm32f4xx_hal_msp.c`,
 settings, and the `Debug/` build output.
 
 ## Architecture
-
-![State diagram](docs/statediagram.png)
 
 | State | Button 1 (run/stop) | Button 2 (clear) | Action |
 |---|---|---|---|
