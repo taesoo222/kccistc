@@ -8,7 +8,6 @@ from mode_manager import ModeManager
 from motion_detector import MotionDetector
 from media_commands import MediaCommandDetector
 from main_return_pose import main_return_pose
-from wrist_swipe import WristSwipeDetector
 from swipe_session import SwipeSession
 from ok_pose import is_ok_pose,ok_pose_details
 
@@ -32,7 +31,6 @@ class GestureController:
         self.media_exit_release_since = None
         self.last_time = None
         self.deferred_swipe = None
-        self.media_swipe = WristSwipeDetector()
         self.swipe = SwipeSession()
 
     def update(self, fingers, landmarks, volume_probability=None, threshold=0.8,
@@ -44,7 +42,6 @@ class GestureController:
             self.motion = MotionDetector()
             self.media.cancel_pending()
             self.gestures = GestureDetector(fist_release_hold_sec=0.0)
-            self.media_swipe = WristSwipeDetector()
             self.swipe.interrupt_tracking()
         self.last_time = now
         present = fingers is not None and landmarks is not None
@@ -71,7 +68,6 @@ class GestureController:
             self.deferred_swipe = None
             self.motion = MotionDetector()
             self.media = MediaCommandDetector()
-            self.media_swipe = WristSwipeDetector()
             self.swipe = SwipeSession()
 
         self.swipe.ok_debug=ok_pose_details(fingers,landmarks,aspect_ratio)

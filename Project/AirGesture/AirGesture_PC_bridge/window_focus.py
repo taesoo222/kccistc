@@ -44,14 +44,3 @@ def focus_ppt_show():
         and win32gui.GetClassName(h).lower()=='screenclass'
         and win32process.GetWindowThreadProcessId(h)[1] in pids else None,None)
     return focus_window(handles[0]) if len(handles)==1 else False
-
-
-def focus_ppt_editor():
-    import psutil,win32gui,win32process
-    pids={p.info['pid'] for p in psutil.process_iter(['pid','name'])
-          if (p.info['name'] or '').lower()=='powerpnt.exe'}
-    handles=[]
-    win32gui.EnumWindows(lambda h,_: handles.append(h) if win32gui.IsWindowVisible(h)
-        and win32gui.GetClassName(h).lower()=='pptframeclass'
-        and win32process.GetWindowThreadProcessId(h)[1] in pids else None,None)
-    return focus_window(handles[-1]) if handles else False

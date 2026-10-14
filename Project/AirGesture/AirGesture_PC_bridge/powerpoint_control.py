@@ -96,8 +96,8 @@ def manage(action):
                         app.AutomationSecurity=previous_security
                 result=start_show(app)
                 try:
-                    try:from .window_focus import focus_ppt_show, focus_ppt_editor
-                    except ImportError:from window_focus import focus_ppt_show, focus_ppt_editor
+                    try:from .window_focus import focus_ppt_show
+                    except ImportError:from window_focus import focus_ppt_show
                     focused=focus_ppt_show()
                     if not focused:raise RuntimeError('Focus denied')
                 except Exception:

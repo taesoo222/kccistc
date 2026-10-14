@@ -2,7 +2,7 @@
 from pathlib import Path
 import time
 import json
-from urllib.parse import urlsplit, parse_qs, urljoin
+from urllib.parse import urlsplit, parse_qs
 
 
 def validate_url(url):
