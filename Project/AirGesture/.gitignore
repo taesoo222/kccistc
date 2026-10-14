@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+
+# 개인 연결 정보 (실행 시 자동 생성)
+AIRGESTURE/bridge_config.json
+AirGesture_PC_bridge/bridge_key.txt
+
+# 브라우저 프로필과 실행 로그
+AirGesture_PC_bridge/youtube_profile/
+*.log
+*.jsonl
+
+# MediaPipe 모델 (첫 실행 시 자동 다운로드)
+AIRGESTURE/models/hand_landmarker.task

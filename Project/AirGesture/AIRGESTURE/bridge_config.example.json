@@ -1,0 +1,4 @@
+{
+  "pc_url": "http://<PC_IP>:8765",
+  "token": "<BRIDGE_KEY>"
+}
