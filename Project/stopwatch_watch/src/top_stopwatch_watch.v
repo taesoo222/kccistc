@@ -20,7 +20,7 @@ module top_stopwatch_watch (
     wire [4:0] w_hour_watch, w_hour_sw, w_hour;
     wire s_ptr, s_active;
     wire w_run_stop, w_clear, w_mode, w_load;
-    wire w_set_en, w_set_rise, w_disp_sel_o;
+    wire w_set_rise, w_disp_sel_o;
     wire [3:0] w_set_btn;
     wire       w_time_zero;
     wire [3:0] w_btn_sw = {w_btn_D, w_btn_U, w_btn_R, w_btn_L};

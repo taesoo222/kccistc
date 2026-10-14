@@ -34,7 +34,7 @@ module watch_control_unit (
     assign o_hour = hour_reg;
     assign o_sec = sec_reg;
 
-    assign i_sw = i_sw_2 & i_sw_1;
+    wire i_sw = i_sw_2 & i_sw_1;
 
     // state register
     always @(posedge clk, posedge reset) begin

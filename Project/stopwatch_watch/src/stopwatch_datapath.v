@@ -42,7 +42,6 @@ module stopwatch_datapath #(
     wire w_tick_100hz, w_tick_sec, w_tick_min, w_tick_hour;
 
     assign time_zero = (msec == 0) && (sec == 0) && (min == 0) && (hour == 0);
-    wire w_run_stop_eff = run_stop;
 
 
     // 알람 값 저장소
@@ -83,7 +82,7 @@ module stopwatch_datapath #(
         .reset(reset),
         .i_tick(w_tick_100hz),
         .mode(mode),
-        .run_stop(w_run_stop_eff),
+        .run_stop(run_stop),
         .clear(clear),
         .load(load_eff),
         .load_value(w_set_msec),
@@ -99,7 +98,7 @@ module stopwatch_datapath #(
         .reset(reset),
         .i_tick(w_tick_sec),
         .mode(mode),
-        .run_stop(w_run_stop_eff),
+        .run_stop(run_stop),
         .clear(clear),
         .load(load_eff),
         .load_value(w_set_sec),
@@ -115,7 +114,7 @@ module stopwatch_datapath #(
         .reset(reset),
         .i_tick(w_tick_min),
         .mode(mode),
-        .run_stop(w_run_stop_eff),
+        .run_stop(run_stop),
         .clear(clear),
         .load(load_eff),
         .load_value(w_set_min),
@@ -131,7 +130,7 @@ module stopwatch_datapath #(
         .reset(reset),
         .i_tick(w_tick_hour),
         .mode(mode),
-        .run_stop(w_run_stop_eff),
+        .run_stop(run_stop),
         .clear(clear),
         .load(load_eff),
         .load_value(w_set_hour),

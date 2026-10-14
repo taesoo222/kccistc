@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 module btn_debounce (
     input  clk,
     input  reset,
@@ -9,7 +10,6 @@ module btn_debounce (
     wire                  debounce;  //output of 8 AND gate
     reg                   edge_reg;
 
-    reg  [$clog2(50_000)-1:0] counter_reg;
     wire                   o_1mhz;
     assign o_1mhz = clk;
     // clock div : 100MHZ -> 1kHz

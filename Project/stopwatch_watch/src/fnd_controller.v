@@ -12,22 +12,21 @@ module fnd_controller #(
     input  [ MIN_WIDTH-1:0] min,
     input  [HOUR_WIDTH-1:0] hour,
     input                   display_mode,
-    input                   set_mode,      // add
-    input                   field_ptr,     // add
+    input                   set_mode,
+    input                   field_ptr,
     input                   def,
     output [           3:0] fnd_com,
     output [           7:0] fnd_data
 );
-    wire [3:0] w_digit_1, w_digit_10, w_digit_100, w_digit_1000;
     wire [3:0] bcd;
     wire [2:0] w_digit_sel;
     wire w_1khz;
     wire [3:0] w_msec_digit_1, w_msec_digit_10, w_sec_digit_1, w_sec_digit_10, w_min_digit_1, w_min_digit_10, w_hour_digit_1, w_hour_digit_10;
     wire [3:0] w_msec_sec, w_min_hour;
     wire w_dot_onoff;
-    wire w_blink;  //add
-    wire w_blank = set_mode & (w_digit_sel[1] == field_ptr) & w_blink;  //add
-    wire [3:0] w_bcd_final = w_blank ? 4'hf : bcd;  //add
+    wire w_blink;
+    wire w_blank = set_mode & (w_digit_sel[1] == field_ptr) & w_blink;
+    wire [3:0] w_bcd_final = w_blank ? 4'hf : bcd;
 
     clk_div U_CLK_DIV (
         .clk   (clk),
@@ -119,7 +118,7 @@ module fnd_controller #(
 
 
     bcd U_BCD (
-        .bcd_in (w_bcd_final),  //add bcd ->w_bcd_final
+        .bcd_in (w_bcd_final),
         .bcd_out(fnd_data)
     );
 
