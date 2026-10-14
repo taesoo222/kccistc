@@ -9,6 +9,7 @@ uses this GitHub repo (`taesoo222/kccistc`) as the single sync point.
 Project/              complete projects
 study/Systemverilog/  SystemVerilog / UVM work
 study/Verilog/        Verilog exercises
+study/STM32/          STM32 (C, HAL) exercises — only .ioc + hand-written code
 scripts/              sync tooling
 ```
 
