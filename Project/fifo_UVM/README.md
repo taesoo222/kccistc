@@ -1,30 +1,37 @@
-# Synchronous FIFO UVM 검증
+# Synchronous FIFO UVM Verification
 
-16 x 8bit 동기식 FIFO를 SystemVerilog로 설계하고, UVM 1.2로 검증 환경을 구성한 미니 프로젝트입니다.
-시뮬레이션은 Synopsys VCS, 파형과 커버리지 확인은 Verdi를 사용했습니다.
+## Overview
 
-## 폴더 구성
+A 16 x 8-bit synchronous FIFO written in SystemVerilog, verified with a UVM 1.2
+testbench. Simulation runs on Synopsys VCS, and waveforms and coverage are
+checked in Verdi.
+
+## Project Structure
 
 ```
 fifo_UVM/
 ├── src/
 │   └── fifo_sv.sv        # fifo_sv (top), fifo_control_unit, registerfile_sv
 ├── sim/
-│   └── tb_fifo_uvm.sv    # interface, UVM 컴포넌트, test, tb top
+│   └── tb_fifo_uvm.sv    # interface, UVM components, test, tb top
 └── Makefile
 ```
 
 ## DUT
 
-`fifo_sv`는 포인터와 full/empty를 관리하는 `fifo_control_unit`과 8bit x 16 메모리인 `registerfile_sv`로 나뉩니다.
+`fifo_sv` is split into `fifo_control_unit`, which handles the pointers and
+the full/empty flags, and `registerfile_sv`, an 8-bit x 16 memory.
 
-- 깊이는 `WIDTH` 파라미터로 정합니다 (`WIDTH = 4` 이면 16칸).
-- 리셋은 동기식 active-low 입니다.
-- 읽기는 `rdata = mem[rptr]` 조합 출력이라 pop 전에도 맨 앞 데이터가 보입니다 (FWFT).
-- full/empty는 포인터 비트를 늘리는 대신 레지스터로 따로 두고, 다음 포인터 값을 비교해서 갱신합니다.
-- push와 pop이 동시에 들어오면 full일 때는 pop만, empty일 때는 push만 하고, 그 외에는 둘 다 수행합니다.
+- Depth is set by the `WIDTH` parameter (`WIDTH = 4` gives 16 entries).
+- Reset is synchronous, active-low.
+- Read is combinational (`rdata = mem[rptr]`), so the head entry is visible
+  before a pop (first-word fall-through).
+- Instead of an extra pointer bit, full and empty are kept as separate
+  registers and updated by comparing the next pointer value.
+- On a simultaneous push and pop, only the pop happens when full, only the
+  push happens when empty, and both happen otherwise.
 
-## 테스트벤치 구조
+## Testbench Architecture
 
 ```
 fifo_test
@@ -37,63 +44,82 @@ fifo_test
     └── fifo_coverage      <- monitor
 ```
 
-- scoreboard는 `bit [7:0] q[$]` 큐로 FIFO 동작을 따라가는 reference model을 두고, 매 사이클 full, empty, rdata를 비교합니다.
-- coverage는 push/pop 조합, full/empty 상태, 그리고 둘의 cross를 보고, wdata/rdata는 0~255 값을 다 써봤는지 확인합니다.
-- interface에 full과 empty가 동시에 1이 되면 안 된다는 assertion을 넣었습니다.
+- The scoreboard keeps a reference model as a `bit [7:0] q[$]` queue and
+  compares full, empty, and rdata every cycle.
+- Coverage collects push/pop combinations, full/empty states, and their cross.
+  It also checks that every wdata/rdata value from 0 to 255 has been seen.
+- The interface has an assertion that full and empty are never 1 at the same
+  time.
 
-### 드라이버/모니터 타이밍
+### Driver / monitor timing
 
-드라이버는 negedge 1ns 뒤에 값을 넣고, 모니터는 posedge 직전 값(`#1step`)을 읽도록 반 주기를 띄웠습니다.
-이렇게 하면 모니터가 읽는 값은 "이번 엣지에 들어갈 입력"과 "엣지 전 DUT 상태"가 한 묶음이 되고,
-scoreboard는 비교를 먼저 한 뒤 큐를 갱신하면 DUT와 같은 순서로 동작하게 됩니다.
+The driver applies values 1 ns after the negedge, and the monitor samples just
+before the posedge (`#1step`), so the two are half a cycle apart. Each monitor
+sample therefore holds the inputs for the coming edge together with the DUT
+state before that edge. The scoreboard compares first and then updates its
+queue, which follows the same order as the DUT.
 
-## 테스트 시나리오
+## Test Scenario
 
-`fifo_test`에서 아래 순서로 시퀀스를 실행합니다.
+`fifo_test` runs the sequences in this order:
 
-1. reset 5사이클
-2. push만 32번 (깊이의 2배) 해서 full과 overflow 차단 확인, 이어서 push+pop 동시 5번
-3. pop만 32번 해서 empty와 underflow 차단 확인, 이어서 push+pop 동시 5번
-4. 다시 가득 채운 상태에서 reset
-5. 랜덤 5000번 (push:pop:동시:idle = 4:4:1:1, 2% 확률로 중간 reset)
+1. Reset for 5 cycles.
+2. 32 push-only cycles (twice the depth) to reach full and check that
+   overflow is blocked, then 5 push+pop cycles.
+3. 32 pop-only cycles to reach empty and check that underflow is blocked,
+   then 5 push+pop cycles.
+4. Fill the FIFO again and reset it while it holds data.
+5. 5000 random cycles (push : pop : both : idle = 4 : 4 : 1 : 1, with a 2%
+   chance of reset in the middle).
 
-2~4번은 랜덤으로는 잘 안 나오는 경계 상황을 일부러 만들기 위한 것이고, 5번에서 일반적인 동작과 중간 리셋을 넓게 봅니다.
+Steps 2 to 4 force corner cases that random stimulus rarely hits. Step 5
+covers normal operation and mid-run resets.
 
-## 트러블슈팅: 첫 사이클 X 문제
+## Troubleshooting: X on the first cycle
 
-처음 돌렸을 때 시뮬레이션 시작 직후 assertion 에러가 하나 뜨고, scoreboard의 skip 횟수가 드라이버가 넣은 리셋 횟수와 맞지 않았습니다.
+The first runs showed one assertion error right after the simulation
+started, and the scoreboard skip count did not match the number of resets
+the driver had applied.
 
-원인은 첫 posedge(5ns) 시점이었습니다. 드라이버는 clocking block으로 negedge + 1ns에 값을 넣기 때문에
-첫 posedge에서는 아직 아무 값도 들어가지 않아 rst_n, push, pop이 모두 X였습니다.
-assertion은 `disable iff (!rst_n)`였는데, rst_n이 X면 `!rst_n`도 X라서 disable이 되지 않고
-X인 full/empty로 검사를 해버렸습니다.
+The cause was the first posedge (5 ns). The driver applies values through the
+clocking block at negedge + 1 ns, so nothing had been driven yet at the first
+posedge and rst_n, push, and pop were all X. The assertion used
+`disable iff (!rst_n)`. When rst_n is X, `!rst_n` is also X, so the assertion
+was not disabled and it checked X values of full/empty.
 
-그래서 다음과 같이 고쳤습니다.
+The fix:
 
-- assertion: `disable iff (!rst_n || $isunknown(rst_n))`로 X 구간을 제외
-- scoreboard: `rst_n !== 1'b1`(4-state 비교)로 X인 사이클도 리셋처럼 건너뛰도록 처리
+- Assertion: `disable iff (!rst_n || $isunknown(rst_n))` to exclude the X period.
+- Scoreboard: `rst_n !== 1'b1` (4-state compare), so an X cycle is skipped like
+  a reset cycle.
 
-이 때문에 scoreboard의 skip 횟수는 드라이버 리셋 횟수보다 1 많게 나오는데, 첫 사이클 X를 건너뛴 것이라 정상입니다.
+Because of this, the scoreboard skip count is one more than the driver's reset
+count. The extra skip is the first X cycle, and this is expected.
 
-## 실행 방법
+## How to Run
 
-VCS와 Verdi가 설치된 Linux 서버에서 실행합니다.
+Run on a Linux server with VCS and Verdi installed.
 
 ```bash
-make            # 컴파일 + 시뮬레이션
-make compile    # 컴파일만
-make sim        # 시뮬레이션만 (sim.log)
-make verdi      # 파형 (wave.fsdb)
-make cov        # 커버리지 GUI
-make urg        # 커버리지 텍스트 리포트 (urgReport/)
+make            # compile + simulate
+make compile    # compile only
+make sim        # simulate only (sim.log)
+make verdi      # waveform (wave.fsdb)
+make cov        # coverage GUI
+make urg        # text coverage report (urgReport/)
 make clean
 ```
 
-`make sim VERBOSITY=UVM_LOW`로 로그를 줄일 수 있고, `make compile FSDB=0`이면 파형을 덤프하지 않습니다.
+`make sim VERBOSITY=UVM_LOW` gives a shorter log, and `make compile FSDB=0`
+turns off the waveform dump.
 
-## 아쉬운 점
+## Limitations
 
-- 드라이버가 아이템 사이에 신호를 idle로 내리지 않아서, 시퀀스 사이에는 마지막 push/pop 값이 그대로 유지됩니다.
-  모니터가 실제 핀 값을 보기 때문에 검증 결과에는 영향이 없지만, 파형을 볼 때 헷갈릴 수 있습니다.
-- coverage가 리셋 중인 사이클도 샘플해서, 일부 cross bin은 리셋 시퀀스 덕분에 채워집니다. 리셋 구간은 빼고 보는 게 더 정확합니다.
-- 데이터 폭이 8bit로 고정되어 있어 `DATA_WIDTH` 파라미터로 빼면 재사용하기 더 좋을 것 같습니다.
+- The driver does not return the signals to idle between items, so the last
+  push/pop values stay on the pins between sequences. Results are not
+  affected because the monitor reads the actual pins, but it can be confusing
+  in the waveform.
+- Coverage also samples reset cycles, so some cross bins are filled by the
+  reset sequence. Excluding reset cycles would give a more accurate number.
+- The data width is fixed at 8 bits. Making it a `DATA_WIDTH` parameter would
+  make the design easier to reuse.
