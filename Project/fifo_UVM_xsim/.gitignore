@@ -1,0 +1,19 @@
+# Vivado project (regenerate with scripts/create_project.tcl)
+*.xpr
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.runs/
+.Xil/
+
+# xsim command-line output
+xsim.dir/
+*.wdb
+*.pb
+*.jou
+*.log
+
+# OS / editor
+Thumbs.db
+.vscode/
