@@ -18,7 +18,7 @@ timers, so the main loop does not need a delay to keep the display stable.
 ## Project Structure
 
 ```
-MINI_STM32_Stopwatch_watch/
+STM32_Stopwatch_watch/
 ├── HW_StopWatch_Watch.ioc          # STM32CubeMX configuration (MCU, clock, pins, TIM3)
 └── Core/Src/
     ├── main.c                      # CubeMX init, then calls ap_main()
