@@ -1,4 +1,4 @@
-# Stopwatch + Watch (STM32)
+# STM32_Stopwatch_watch
 
 ## Overview
 
