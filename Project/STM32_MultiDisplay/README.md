@@ -1,4 +1,4 @@
-# HW4_LCD_MultiDisplay
+# STM32_MultiDisplay
 
 STM32F411RE(NUCLEO)로 만든 스마트 워치입니다. I2C LCD에 달력, 온습도, 초음파 거리, 스톱워치, 시계를 보여 줍니다.
 

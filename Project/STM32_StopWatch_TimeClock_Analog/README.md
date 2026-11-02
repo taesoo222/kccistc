@@ -1,4 +1,4 @@
-# HW3_StopWatch_TimeClock_Analog
+# STM32_StopWatch_TimeClock_Analog
 
 STM32F411RE(NUCLEO)로 만든 아날로그 시계와 스톱워치입니다. 스텝 모터 3개(28BYJ-48)가 시침, 분침, 초침을 돌리고, I2C LCD와 FND에 시간을 보여 줍니다.
 
