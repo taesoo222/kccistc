@@ -1,0 +1,30 @@
+/*
+ * TimeClock.h
+ *
+ *  Created on: 2026. 10. 19.
+ *      Author: rhoblack
+ */
+
+#ifndef SRC_AP_TIMECLOCK_TIMECLOCK_H_
+#define SRC_AP_TIMECLOCK_TIMECLOCK_H_
+#include "stm32f4xx_hal.h"
+
+// year ~ sec : same order as rtc_t
+typedef struct {
+	uint8_t year;
+	uint8_t month;
+	uint8_t date;
+	uint8_t day;
+	uint8_t hour;
+	uint8_t min;
+	uint8_t sec;
+	uint8_t msec; // 0~99 (10ms), counted by TIM4
+} TimeClock_t;
+
+
+void TimeClock_init(void);
+TimeClock_t *TimeClock_getTimeData(void);
+void TimeClock_ISR(void);
+void TimeClock_task(void);
+
+#endif /* SRC_AP_TIMECLOCK_TIMECLOCK_H_ */
