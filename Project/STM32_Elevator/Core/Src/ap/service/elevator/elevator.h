@@ -33,6 +33,8 @@ typedef enum {
 	ELEV_ERR_NONE,
 	ELEV_ERR_TIMEOUT,   // 정해진 스텝 안에 다음 센서가 안 걸림
 	ELEV_ERR_DIRECTION, // 층 센서를 하나 건너뜀 (센서를 놓침)
+	ELEV_ERR_BUTTON,    // 현장 비상 버튼 (B1)
+	ELEV_ERR_REMOTE,    // PC(관제실) 원격 비상 정지
 } elev_err_t;
 
 typedef enum {
@@ -46,7 +48,8 @@ void elevator_init(stepMotor_t *motor);
 // 점검 운전 (ERROR 상태에서만 동작): 누르고 있는 동안 jog 방향으로 돌고, 떼면(NONE) 정지
 void elevator_jog(elev_jog_t jog);
 bool elevator_rehome(void); // ERROR에서 다시 HOMING 시작, ERROR가 아니면 false
-void elevator_request(uint8_t floor); // 층 버튼 (언제든 호출 가능)
+bool elevator_request(uint8_t floor); // 층 버튼 (언제든 호출 가능), ERROR 중이거나 층이 틀리면 false
+bool elevator_emergencyStop(elev_err_t reason); // 즉시 정지 -> ERROR (점검 운전/rehome으로 해제), 이미 ERROR면 false
 void elevator_task(void);             // 메인 루프에서 계속 호출 (문 시간, 다음 호출 선택)
 
 void elevator_tick(void);                              // TIM9 ISR에서 호출 (1스텝 주기)

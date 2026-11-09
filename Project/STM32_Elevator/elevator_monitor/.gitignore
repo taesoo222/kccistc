@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# 바꾼 관리자 PIN의 해시가 저장되는 파일
+monitor_config.json

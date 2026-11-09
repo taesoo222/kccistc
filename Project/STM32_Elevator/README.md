@@ -14,9 +14,11 @@ STM32F411RE(NUCLEO)로 만든 3층 엘리베이터 모형입니다. 스텝모터
 | 방향 자동 판별 | 실이 다 풀리면 반대로 감기므로, 센서가 걸리는 순서를 보고 "위" 모터 방향을 자동으로 뒤집습니다. |
 | 안전장치 | 층 사이에서 센서가 안 걸리면(시간 초과) 또는 층을 건너뛰면 모터를 멈추고 경보음을 냅니다(ERROR). |
 | 점검 운전 | ERROR 상태에서 버튼으로 모터를 직접 돌리고 다시 HOMING 할 수 있습니다. |
+| 비상 정지 | 비상 버튼이나 PC 명령으로 즉시 멈추고, 경보음과 비상 LED로 알립니다(ERROR). |
+| PC 감시 | `elevator_monitor` 프로그램으로 원격 호출, 상태 감시, 비상 정지와 해제를 합니다. |
 
 - 부저 소리: 전원을 켤 때, 버튼을 누를 때, 층에 도착할 때, ERROR일 때 납니다.
-- UART(115200)로 센서 IN/OUT, 스텝 수, 상태/층/호출(`calls=[-23]`), 방향 뒤집힘(`DIR FLIP`) 로그를 출력합니다.
+- UART(115200)로 PC 감시 프로그램과 패킷을 주고받습니다. 디버깅용 텍스트 로그는 `ap_main.c`의 `UART_TEXT_LOG`를 1로 하면 출력됩니다(PC 감시 프로그램과 같이 쓸 수 없음).
 
 ## 버튼
 
@@ -25,6 +27,7 @@ STM32F411RE(NUCLEO)로 만든 3층 엘리베이터 모형입니다. 스텝모터
 | 1층 | PC3 | 1층 호출 | 2초 길게 누르면 다시 HOMING |
 | 2층 | PC1 | 2층 호출 | 누르는 동안 모터 정방향(CW) |
 | 3층 | PC0 | 3층 호출 | 누르는 동안 모터 역방향(CCW) |
+| 비상 | PB5, PC13(B1) | 즉시 정지 후 ERROR | - |
 
 ## 하드웨어 연결
 
@@ -35,14 +38,15 @@ STM32F411RE(NUCLEO)로 만든 3층 엘리베이터 모형입니다. 스텝모터
 | 호출 램프 LED 1F / 2F / 3F | PB13 / PB14 / PB15 |
 | I2C LCD (0x27) | I2C1: PB8 (SCL), PB9 (SDA) |
 | 부저 | PA11 (TIM1_CH4 PWM) |
-| UART 로그 | USART2: PA2 (TX), PA3 (RX) |
+| 비상 LED | PB4 |
+| PC 통신 | USART2: PA2 (TX), PA3 (RX) |
 
 ## 구조
 
 ```
 Core/Src/
-├── ap/            # 앱: 버튼, 램프, 효과음, UART 로그 (ap_main.c)
-│   └── service/   # elevator (상태 머신, 운행), display (LCD 상단 표시기), sound
+├── ap/            # 앱: 버튼, 램프, 비상 버튼, 인터럽트 콜백 분배 (ap_main.c)
+│   └── service/   # elevator (상태 머신, 운행), display (LCD 상단 표시기), sound, protocol (PC 통신)
 ├── driver/        # StepMotor, photoSensor, button, led, lcd, buzzer
 └── common/        # queue
 ```
@@ -51,6 +55,10 @@ Core/Src/
 - TIM9 (1ms): 스텝모터 1스텝(하프스텝). 이보다 빠르면 탈조합니다.
 - EXTI15_10: 포토 인터럽터. 층 위치는 센서로만 판단하고, 센서에 들어간 뒤 250스텝(차단판 폭의 절반) 더 가서 섭니다.
 - TIM1: 부저 PWM
+
+## PC 감시 프로그램
+
+[elevator_monitor](elevator_monitor)에 Python GUI가 있습니다. 실행 방법과 통신 프로토콜은 해당 폴더의 README를 참고하세요.
 
 ## 빌드
 

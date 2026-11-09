@@ -46,7 +46,7 @@ static volatile uint8_t homingUp = 0;     // 전원 ON 때 1층 센서가 가려
 static volatile uint16_t stopCountdown = 0;
 static volatile uint16_t segmentSteps = 0; // 마지막 센서 진입 후 스텝 수
 static volatile uint32_t totalSteps = 0;
-static uint32_t doorStart = 0;
+static volatile uint32_t doorStart = 0;   // 도착 시 ISR에서 세팅 (메인이 예전 값으로 문을 바로 닫지 않게)
 static volatile elev_jog_t jog = ELEV_JOG_NONE; // 점검 운전 방향 (메인에서 쓰고 ISR이 읽음)
 static volatile uint8_t jogging = 0;             // ISR 전용: 점검 운전으로 코일이 켜져 있음
 
@@ -112,6 +112,7 @@ void elevator_tick(void)
 			stop(ELEV_IDLE); // HOMING 완료는 문 안 열고 바로 대기
 		}
 		else {
+			doorStart = HAL_GetTick(); // state보다 먼저: 메인이 DOOR_OPEN을 보는 순간 이미 새 시각
 			arrived = 1;
 			stop(ELEV_DOOR_OPEN);
 		}
@@ -219,18 +220,33 @@ bool elevator_rehome(void)
 	return true;
 }
 
-void elevator_request(uint8_t floor)
+bool elevator_request(uint8_t floor)
 {
 	if (floor < 1 || floor > PHOTO_FLOOR_NUM || state == ELEV_ERROR) {
-		return;
+		return false;
 	}
 	// 멈춰 있는 층의 버튼 = 문 열기 / 문 열림 연장
 	if (floor == curFloor && (state == ELEV_IDLE || state == ELEV_DOOR_OPEN)) {
 		doorStart = HAL_GetTick();
 		state = ELEV_DOOR_OPEN;
-		return;
+		return true;
 	}
 	calls |= FLOOR_BIT(floor);
+	return true;
+}
+
+bool elevator_emergencyStop(elev_err_t reason)
+{
+	bool ok = false;
+	__disable_irq(); // TIM9/EXTI가 같은 변수(state, dir)를 바꾸는 중간에 끼지 않게
+	if (state != ELEV_ERROR) {
+		jog = ELEV_JOG_NONE;
+		calls = 0; // 비상 정지 = 등록된 호출 취소 (PC 화면도 같이 지움)
+		fail(reason);
+		ok = true;
+	}
+	__enable_irq();
+	return ok;
 }
 
 // 가장 가까운 호출 층 (dir 방향으로만), 없으면 0
@@ -251,10 +267,9 @@ static uint8_t nearestCall(dir_t d)
 
 void elevator_task(void)
 {
-	if (arrived) { // 방금 도착: 그 층 호출 지우고 문 열림 시작
+	if (arrived) { // 방금 도착: 그 층 호출 지움 (문 열림 시각은 ISR이 이미 세팅)
 		arrived = 0;
 		calls &= ~FLOOR_BIT(curFloor);
-		doorStart = HAL_GetTick();
 	}
 
 	if (state == ELEV_DOOR_OPEN && HAL_GetTick() - doorStart >= DOOR_OPEN_MS) {
