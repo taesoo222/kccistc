@@ -1,7 +1,4 @@
-# kccistc
-
-KCCI 서울기술교육센터 과정에서 만든 **Verilog / SystemVerilog(FPGA)** 와 **STM32(임베디드 C)** 실습·프로젝트 모음입니다.
-완성된 프로젝트는 `Project/`, 단계별 연습은 `study/`에 있습니다.
+# 대한상공회의소 서울기술교육센터
 
 ## 폴더 한눈에 보기
 
@@ -22,8 +19,6 @@ kccistc/
 | [STM32_MultiDisplay](Project/STM32_MultiDisplay) | 스마트 워치. I2C LCD에 달력 · 온습도(DHT11) · 초음파 거리(HC-SR04) · 스톱워치 · 시계 |
 | [STM32_StopWatch_TimeClock_Analog](Project/STM32_StopWatch_TimeClock_Analog) | 스텝모터 3개로 시침/분침/초침을 돌리는 아날로그 시계 + 스톱워치 (DS3231 RTC) |
 | [STM32_Stopwatch_watch](Project/STM32_Stopwatch_watch) | FND 스톱워치 / 시계 2모드 |
-
-STM32 프로젝트는 공통적으로 `Core/Src/` 아래를 `ap/`(애플리케이션·서비스) · `driver/`(장치 드라이버) · `common/`(큐, 딜레이 등)로 나눕니다.
 
 ### FPGA (Verilog / SystemVerilog)
 
@@ -48,17 +43,3 @@ STM32 프로젝트는 공통적으로 `Core/Src/` 아래를 `ap/`(애플리케�
 | `study/Verilog/` | `8bit_fulladder`, `adder_fnd`, `clock_divider_N`, `fifo`, `top_counter_10000` |
 | `study/Systemverilog/` | `counter_sv`, `ram_sv`, `fifo_sv`, `dedicated_cpu`, `dedicated_counter_cpu`, `gp_cpu_sv` (간단한 CPU까지. RV32I는 `Project/rv32i_soc`) |
 | `study/STM32/` | `20261014_fnd_fsm` — FND + FSM 스톱워치 |
-
-## 폴더 구조 규칙
-
-저장소에는 **직접 작성한 소스만** 올립니다.
-
-```
-<프로젝트>/
-├── src/      설계 소스 (.v / .sv)
-├── sim/      테스트벤치 (tb_*.sv)
-└── constrs/  제약 파일 (.xdc), 있을 때만
-```
-
-- Vivado 프로젝트(`.xpr`, `.srcs/` 등)는 저장소 밖에 두고 커밋하지 않습니다.
-- STM32는 `.ioc`와 직접 쓴 코드만 올립니다.
