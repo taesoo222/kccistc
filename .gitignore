@@ -35,5 +35,3 @@ hs_err_pid*.log
 Thumbs.db
 .DS_Store
 
-# ==== sync script: per-PC workspace path override ====
-scripts/workspace-root.local

@@ -8,8 +8,7 @@ KCCI 서울기술교육센터 과정에서 만든 **Verilog / SystemVerilog(FPGA
 ```
 kccistc/
 ├── Project/   완성된 프로젝트 (각 폴더에 README 있음)
-├── study/     수업 중 만든 연습 코드
-└── scripts/   Vivado 프로젝트 ↔ 이 저장소 동기화 스크립트
+└── study/     수업 중 만든 연습 코드
 ```
 
 ## Project/ — 완성된 프로젝트
@@ -62,5 +61,4 @@ STM32 프로젝트는 공통적으로 `Core/Src/` 아래를 `ap/`(애플리케�
 ```
 
 - Vivado 프로젝트(`.xpr`, `.srcs/` 등)는 저장소 밖에 두고 커밋하지 않습니다.
-- 두 대의 PC에서 작업하므로 `scripts/sync.ps1`이 `scripts/projects.json`의 매핑대로 Vivado 프로젝트와 이 저장소 사이에서 소스를 복사합니다.
 - STM32는 `.ioc`와 직접 쓴 코드만 올립니다.
