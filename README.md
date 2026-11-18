@@ -35,11 +35,3 @@ kccistc/
 | 폴더 | 내용 |
 |------|------|
 | [AirGesture](Project/AirGesture) | 라즈베리파이 카메라로 손동작을 인식해 Windows PC의 영상 재생·PPT 슬라이드를 제어 (팀 프로젝트). `AIRGESTURE`(Pi 쪽 + 모델) / `AirGesture_PC_bridge`(PC 쪽) / `experiments`(스와이프 MLP 실험) |
-
-## study/ — 연습 코드
-
-| 폴더 | 내용 |
-|------|------|
-| `study/Verilog/` | `8bit_fulladder`, `adder_fnd`, `clock_divider_N`, `fifo`, `top_counter_10000` |
-| `study/Systemverilog/` | `counter_sv`, `ram_sv`, `fifo_sv`, `dedicated_cpu`, `dedicated_counter_cpu`, `gp_cpu_sv` (간단한 CPU까지. RV32I는 `Project/rv32i_soc`) |
-| `study/STM32/` | `20261014_fnd_fsm` — FND + FSM 스톱워치 |
