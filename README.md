@@ -12,7 +12,7 @@ kccistc/
 
 ### 임베디드 (STM32F411RE NUCLEO, C / HAL)
 
-<table>
+<table width="100%">
 <tr><th width="30%">폴더</th><th width="70%">내용</th></tr>
 <tr><td><a href="Project/STM32_Elevator">STM32_Elevator</a></td><td>3층 엘리베이터 모형. 스텝모터 + 포토 인터럽터, UART 패킷으로 PC 모니터(<code>elevator_monitor</code>, Python)와 연동, 비상 정지</td></tr>
 <tr><td><a href="Project/STM32_RC_Car_RTOS_ISR">STM32_RC_Car_RTOS_ISR</a></td><td>FreeRTOS 초음파 자율주행 RC카. 태스크 4개 + 메시지 큐, 수동/자동 주행 FSM</td></tr>
@@ -23,7 +23,7 @@ kccistc/
 
 ### FPGA (Verilog / SystemVerilog)
 
-<table>
+<table width="100%">
 <tr><th width="30%">폴더</th><th width="70%">내용</th></tr>
 <tr><td><a href="Project/rv32i_soc">rv32i_soc</a></td><td>RISC-V RV32I CPU / SoC</td></tr>
 <tr><td><a href="Project/fifo_UVM">fifo_UVM</a></td><td>동기식 FIFO(16x8bit) UVM 검증 (Synopsys VCS)</td></tr>
@@ -34,7 +34,7 @@ kccistc/
 
 ### AI
 
-<table>
+<table width="100%">
 <tr><th width="30%">폴더</th><th width="70%">내용</th></tr>
 <tr><td><a href="Project/AirGesture">AirGesture</a></td><td>라즈베리파이 카메라로 손동작을 인식해 Windows PC의 영상 재생·PPT 슬라이드를 제어 (팀 프로젝트). <code>AIRGESTURE</code>(Pi 쪽 + 모델) / <code>AirGesture_PC_bridge</code>(PC 쪽) / <code>experiments</code>(스와이프 MLP 실험)</td></tr>
 </table>
